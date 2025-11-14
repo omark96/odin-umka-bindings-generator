@@ -1,0 +1,51 @@
+package example
+import "../../umka"
+import "base:runtime"
+import "core:fmt"
+
+
+umka_add :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	a := cast(^int)umka.GetParam(params, 0)
+	b := cast(^int)umka.GetParam(params, 1)
+	result = cast(int)add(a^, b^)
+}
+umka_print_string :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	str := cast(^cstring)umka.GetParam(params, 0)
+	print_string(str^)
+}
+
+umka_print_struct :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	// fmt.println("Got:")
+	s := cast(^Some_Struct)umka.GetParam(params, 0)
+	print_struct(s^)
+}
+
+umka_add_bindings :: proc(ctx: ^umka.Context) {
+	fmt.println("Adding add")
+	umka.AddFunc(ctx^, "add", umka_add)
+	fmt.println("Adding print_string")
+	umka.AddFunc(ctx^, "print_string", umka_print_string)
+	fmt.println("Adding print_struct")
+	umka.AddFunc(ctx^, "print_struct", umka_print_struct)
+	fmt.println("Adding module")
+	rv := umka.AddModule(
+		ctx^,
+		"odin.um",
+		`
+		type Some_Struct* = struct {
+			a: int 
+			b: bool
+		}
+		fn add*(a, b: int): int
+		fn print_string*(string: str)
+		fn print_struct*(s: Some_Struct)
+	`,
+	)
+	umka_assert(rv)
+}

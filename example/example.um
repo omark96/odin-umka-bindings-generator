@@ -1,0 +1,10 @@
+import (
+    "bindings.um"
+)
+
+fn main() {
+    result := bindings::add(1, 2)
+    printf("%v\n", result)
+    bindings::print_string_from_odin("Hello from Umka in Odin!")
+    bindings::print_some_struct_from_odin(bindings::Some_Struct{1, true})
+}
