@@ -5,6 +5,9 @@ import (
 fn main() {
     result := bindings::add(1, 2)
     printf("%v\n", result)
-    bindings::print_string_from_odin("Hello from Umka in Odin!")
-    bindings::print_some_struct_from_odin(bindings::Some_Struct{1, true})
+    bindings::print_cstring("Hello from Umka in Odin!")
+    bindings::print_string("String from Umka")
+    bindings::print_some_struct(bindings::Some_Struct{1, true})
+    bindings::print_some_enum_value(bindings::Some_Enum.A)
+    bindings::print_some_array(bindings::Some_Array{1, 5, 3, 6})
 }

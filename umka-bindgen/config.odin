@@ -19,6 +19,7 @@ odin_to_umka := map[string]Umka_Builtin_Type {
 	"rawptr" = Umka_Builtin_Type{name = "^void", stack_slot = .ptrVal},
 	"rune" = Umka_Builtin_Type{name = "uint32", stack_slot = .intVal},
 	"cstring" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
+	"string" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
 }
 
 odin_types := map[string]Odin_Type {

@@ -6,18 +6,47 @@ import "../umka"
 import "base:runtime"
 import "core:fmt"
 
-umka_some_func_without_args :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+umka_print_string :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 	context = runtime.default_context()
 
-	some_func_without_args()
+	c_s := cast(^cstring)umka.GetParam(params, 0)
+	s := string(c_s^)
+	print_string(s) 
+}
+				
+umka_print_some_enum_value :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	v := cast(^Some_Enum)umka.GetParam(params, 0)
+	print_some_enum_value(v^) 
 }
 				
 umka_some_func :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 	context = runtime.default_context()
 
 	a := cast(^int)umka.GetParam(params, 0)
-	res := some_func(a^)
+	res := some_func(a^) 
 	result.ptrVal = cast(rawptr)&res
+}
+				
+umka_print_cstring :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	s := cast(^cstring)umka.GetParam(params, 0)
+	print_cstring(s^) 
+}
+				
+umka_some_func2 :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	a := cast(^int)umka.GetParam(params, 0)
+	some_func2(a^) 
+}
+				
+umka_some_func_without_args :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	some_func_without_args()
 }
 				
 umka_add :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
@@ -25,62 +54,61 @@ umka_add :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 
 	a := cast(^int)umka.GetParam(params, 0)
 	b := cast(^int)umka.GetParam(params, 1)
-	res := add(a^, b^)
+	res := add(a^, b^) 
 	result.intVal = cast(i64)res
 }
 				
-umka_some_func2 :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	a := cast(^int)umka.GetParam(params, 0)
-	some_func2(a^)
-}
-				
-umka_print_string_from_odin :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	s := cast(^cstring)umka.GetParam(params, 0)
-	print_string_from_odin(s^)
-}
-				
-umka_print_some_struct_from_odin :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+umka_print_some_struct :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 	context = runtime.default_context()
 
 	s := cast(^Some_Struct)umka.GetParam(params, 0)
-	print_some_struct_from_odin(s^)
+	print_some_struct(s^) 
+}
+				
+umka_print_some_array :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	a := cast(^Some_Array)umka.GetParam(params, 0)
+	print_some_array(a^) 
 }
 				
 umka_add_bindings :: proc(ctx: ^umka.Context) {
-	fmt.println("Adding some_func_without_args")
-	umka.AddFunc(ctx^, "some_func_without_args", umka_some_func_without_args)
+	fmt.println("Adding print_string")
+	umka.AddFunc(ctx^, "print_string", umka_print_string)
+	fmt.println("Adding print_some_enum_value")
+	umka.AddFunc(ctx^, "print_some_enum_value", umka_print_some_enum_value)
 	fmt.println("Adding some_func")
 	umka.AddFunc(ctx^, "some_func", umka_some_func)
-	fmt.println("Adding add")
-	umka.AddFunc(ctx^, "add", umka_add)
+	fmt.println("Adding print_cstring")
+	umka.AddFunc(ctx^, "print_cstring", umka_print_cstring)
 	fmt.println("Adding some_func2")
 	umka.AddFunc(ctx^, "some_func2", umka_some_func2)
-	fmt.println("Adding print_string_from_odin")
-	umka.AddFunc(ctx^, "print_string_from_odin", umka_print_string_from_odin)
-	fmt.println("Adding print_some_struct_from_odin")
-	umka.AddFunc(ctx^, "print_some_struct_from_odin", umka_print_some_struct_from_odin)
+	fmt.println("Adding some_func_without_args")
+	umka.AddFunc(ctx^, "some_func_without_args", umka_some_func_without_args)
+	fmt.println("Adding add")
+	umka.AddFunc(ctx^, "add", umka_add)
+	fmt.println("Adding print_some_struct")
+	umka.AddFunc(ctx^, "print_some_struct", umka_print_some_struct)
+	fmt.println("Adding print_some_array")
+	umka.AddFunc(ctx^, "print_some_array", umka_print_some_array)
 	rv := umka.AddModule(
 		ctx^,
 		"bindings.um",
 		`
-		type Some_Struct* = struct {
-			a: int
-			b: bool
-		}
 		type Some_Struct2* = struct {
 			a,b: int
 			c: bool
 		}
-		type Some_Struct3* = struct {
+		type Some_Struct* = struct {
+			a: int
+			b: bool
 		}
 		type Some_Struct4* = struct {
 			a: real32
 			b: uint32
 			d: real
+		}
+		type Some_Struct3* = struct {
 		}
 		type Some_Array2* = [5]uint8
 		type Some_Array* = [4]int
@@ -99,12 +127,15 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 		type My_Int* = int
 		type Some_Struct_Alias* = Some_Struct
 		type My_Distinct_Int* = int
-		fn some_func_without_args*()
+		fn print_string*(s: str)
+		fn print_some_enum_value*(v: Some_Enum)
 		fn some_func*(a: int): Some_Struct
-		fn add*(a: int, b: int): int
+		fn print_cstring*(s: str)
 		fn some_func2*(a: int)
-		fn print_string_from_odin*(s: str)
-		fn print_some_struct_from_odin*(s: Some_Struct)
+		fn some_func_without_args*()
+		fn add*(a: int, b: int): int
+		fn print_some_struct*(s: Some_Struct)
+		fn print_some_array*(a: Some_Array)
 	`,
 	)
 }

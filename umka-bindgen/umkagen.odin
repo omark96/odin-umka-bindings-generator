@@ -4,12 +4,37 @@ import umka "../umka"
 import "base:runtime"
 import "core:fmt"
 import "core:log"
+import "core:mem"
 import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
 import "core:strconv"
 import "vendor:raylib"
 
+
+Type_Kind :: enum {
+	Pointer,
+	Proc,
+	Param,
+	Struct,
+	Builtin,
+	Array,
+	Slice,
+	Enum,
+	Alias,
+	Distinct,
+}
+
+Type :: struct {
+	kind:        Type_Kind,
+	name:        string,
+	base_type:   string,
+	fields:      [dynamic]Odin_Field,
+	enum_fields: [dynamic]Odin_Enum_Field,
+	params:      [dynamic]Odin_Param_Type,
+	returns:     [dynamic]Odin_Param_Type,
+	length:      int,
+}
 
 Odin_Type :: union {
 	Odin_Pointer_Type,
@@ -106,6 +131,23 @@ Umka_Builtin_Type :: struct {
 
 
 main :: proc() {
+	when ODIN_DEBUG {
+		track: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&track, context.allocator)
+		context.allocator = mem.tracking_allocator(&track)
+
+		defer {
+			sum := 0
+			if len(track.allocation_map) > 0 {
+				for _, entry in track.allocation_map {
+					fmt.eprintf("%v leaked %v bytes\n", entry.location, entry.size)
+					sum += entry.size
+				}
+				fmt.eprintf("Leaked a total of: %v bytes", sum)
+			}
+			mem.tracking_allocator_destroy(&track)
+		}
+	}
 	fmt.println("Init")
 	pkg, ok := parser.parse_package_from_path("./example")
 	if !ok {
@@ -331,13 +373,23 @@ import "core:fmt"
 				proc_name,
 			)
 			for param, i in type.params {
-				fmt.fprintfln(
-					f,
-					`	%s := cast(^%s)umka.GetParam(params, %d)`,
-					param.name,
-					param.type,
-					i,
-				)
+				if param.type == "string" {
+					fmt.fprintfln(
+						f,
+						`	c_%s := cast(^cstring)umka.GetParam(params, %d)`,
+						param.name,
+						i,
+					)
+					fmt.fprintfln(f, `	%s := string(c_%s^)`, param.name, param.name)
+				} else {
+					fmt.fprintfln(
+						f,
+						`	%s := cast(^%s)umka.GetParam(params, %d)`,
+						param.name,
+						param.type,
+						i,
+					)
+				}
 			}
 			if len(type.returns) > 0 {
 				stack_slot := StackSlot.ptrVal
@@ -371,9 +423,17 @@ import "core:fmt"
 				fmt.fprintf(f, `	res := %s(`, proc_name)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
-						fmt.fprintf(f, `%s^, `, param.name)
+						if param.type == "string" {
+							fmt.fprintf(f, `%s, `, param.name)
+						} else {
+							fmt.fprintf(f, `%s^, `, param.name)
+						}
 					} else {
-						fmt.fprintfln(f, `%s^)`, param.name)
+						if param.type == "string" {
+							fmt.fprintfln(f, `%s) `, param.name)
+						} else {
+							fmt.fprintfln(f, `%s^) `, param.name)
+						}
 					}
 				}
 				ptr_string := stack_slot == .ptrVal ? "&" : ""
@@ -382,9 +442,17 @@ import "core:fmt"
 				fmt.fprintf(f, `	%s(`, proc_name)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
-						fmt.fprintf(f, `%s^, `, param.name)
+						if param.type == "string" {
+							fmt.fprintf(f, `%s, `, param.name)
+						} else {
+							fmt.fprintf(f, `%s^, `, param.name)
+						}
 					} else {
-						fmt.fprintfln(f, `%s^)`, param.name)
+						if param.type == "string" {
+							fmt.fprintfln(f, `%s) `, param.name)
+						} else {
+							fmt.fprintfln(f, `%s^) `, param.name)
+						}
 					}
 				}
 				if len(type.params) < 1 {

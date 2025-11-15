@@ -99,17 +99,27 @@ some_func_without_args :: proc() {
 }
 
 @(umka_fn)
-print_string_from_odin :: proc(s: cstring) {
+print_cstring :: proc(s: cstring) {
 	fmt.println(s)
 }
 
 @(umka_fn)
-print_some_struct_from_odin :: proc(s: Some_Struct) {
+print_string :: proc(s: string) {
+	fmt.println(s)
+}
+
+@(umka_fn)
+print_some_struct :: proc(s: Some_Struct) {
 	fmt.printfln("%#v", s)
 }
 
-print_struct :: proc(s: Some_Struct) {
-	fmt.println(s)
+@(umka_fn)
+print_some_enum_value :: proc(v: Some_Enum) {
+	fmt.printfln("%d", v)
+}
+@(umka_fn)
+print_some_array :: proc(a: Some_Array) {
+	fmt.printfln("%#v", a)
 }
 
 g_umka_ctx: umka.Context
