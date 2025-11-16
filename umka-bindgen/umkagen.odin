@@ -26,14 +26,15 @@ Type_Kind :: enum {
 }
 
 Type :: struct {
-	kind:        Type_Kind,
-	name:        string,
-	base_type:   string,
-	fields:      [dynamic]Odin_Field,
-	enum_fields: [dynamic]Odin_Enum_Field,
-	params:      [dynamic]Odin_Param_Type,
-	returns:     [dynamic]Odin_Param_Type,
-	length:      int,
+	kind:         Type_Kind,
+	base_type:    string,
+	fields:       [dynamic]Odin_Field,
+	enum_fields:  [dynamic]Odin_Enum_Field,
+	params:       [dynamic]Odin_Param_Type,
+	returns:      [dynamic]Odin_Param_Type,
+	dependencies: map[string]struct {
+	},
+	length:       int,
 }
 
 Odin_Param_Type :: struct {
@@ -96,11 +97,13 @@ main :: proc() {
 					sum += entry.size
 				}
 				fmt.eprintf("Leaked a total of: %v bytes", sum)
+				fmt.eprintf("Size of struct: %d", size_of(Type))
 			}
 			mem.tracking_allocator_destroy(&track)
 		}
 	}
 	fmt.println("Init")
+
 	pkg, ok := parser.parse_package_from_path("./example")
 	if !ok {
 		fmt.println("error: failed to read package")
@@ -131,9 +134,21 @@ main :: proc() {
 				for field in struct_type.fields.list {
 					codegen_field := Odin_Field{}
 					for name in field.names {
-						append(&codegen_field.names, name.derived_expr.(^ast.Ident).name)
+						field_name := name.derived_expr.(^ast.Ident).name
+
+						append(&codegen_field.names, field_name)
 					}
-					codegen_field.type = field.type.derived_expr.(^ast.Ident).name
+					type_name := field.type.derived_expr.(^ast.Ident).name
+					if type_name in codegen_type.dependencies == false {
+						if type_name in odin_types {
+							if odin_types[type_name].kind != .Builtin {
+								codegen_type.dependencies[type_name] = {}
+							}
+						} else {
+							codegen_type.dependencies[type_name] = {}
+						}
+					}
+					codegen_field.type = type_name
 					append(&codegen_type.fields, codegen_field)
 				}
 				odin_types[struct_ident.name] = codegen_type
@@ -291,8 +306,10 @@ main :: proc() {
 			// append(&cmds, cmd)
 		}
 	}
-	for key, value in odin_types {
-		fmt.printfln("%v: %#v", key, value)
+	for name, type in odin_types {
+		if type.kind != .Builtin {
+			fmt.printfln("%v: %#v", name, type)
+		}
 	}
 
 	f, _ := os.open("./example/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
@@ -423,15 +440,17 @@ import "core:fmt"
 			fmt.fprintfln(f, `	umka.AddFunc(ctx^, "%s", umka_%s)`, proc_name, proc_name)
 		}
 	}
-	fmt.fprintfln(f, `	rv := umka.AddModule(
+
+	added_types: fmt.fprintfln(f, `	rv := umka.AddModule(
 		ctx^,
 		"bindings.um",`)
 	fmt.fprintln(f, "		`")
+	fmt.fprintln(f, `		type (`)
 	for struct_name, type in odin_types {
 		if type.kind == .Struct {
-			fmt.fprintfln(f, `		type %s* = struct {{`, struct_name)
+			fmt.fprintfln(f, `			%s* = struct {{`, struct_name)
 			for field in type.fields {
-				fmt.fprintf(f, `			`)
+				fmt.fprintf(f, `				`)
 				for name, i in field.names {
 					type_name :=
 						field.type in odin_to_umka ? odin_to_umka[field.type].name : field.type
@@ -442,7 +461,7 @@ import "core:fmt"
 					}
 				}
 			}
-			fmt.fprintfln(f, `		}}`)
+			fmt.fprintfln(f, `			}}`)
 
 		}
 	}
@@ -450,7 +469,7 @@ import "core:fmt"
 		if type.kind == .Array {
 			type_name :=
 				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
-			fmt.fprintfln(f, `		type %s* = [%d]%s`, array_name, type.length, type_name)
+			fmt.fprintfln(f, `			%s* = [%d]%s`, array_name, type.length, type_name)
 		}
 	}
 	// TODO: Slices?
@@ -459,33 +478,28 @@ import "core:fmt"
 
 			backing_string :=
 				type.base_type != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type].name) : ""
-			fmt.fprintfln(f, `		type %s* = enum %s{{`, enum_name, backing_string)
+			fmt.fprintfln(f, `			%s* = enum %s{{`, enum_name, backing_string)
 			prev_val := -1
 			for field in type.enum_fields {
 				if field.value - prev_val > 1 {
-					fmt.fprintfln(f, `			%s = %d`, field.name, field.value)
+					fmt.fprintfln(f, `				%s = %d`, field.name, field.value)
 				} else {
-					fmt.fprintfln(f, `			%s`, field.name)
+					fmt.fprintfln(f, `				%s`, field.name)
 				}
 				prev_val = field.value
 			}
-			fmt.fprintfln(f, `		}}`)
+			fmt.fprintfln(f, `			}}`)
 		}
 	}
 	for alias_name, type in odin_types {
-		if type.kind == .Alias {
+		if type.kind == .Alias || type.kind == .Distinct {
 			type_name :=
 				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
-			fmt.fprintfln(f, `		type %s* = %s`, alias_name, type_name)
+			fmt.fprintfln(f, `			%s* = %s`, alias_name, type_name)
 		}
 	}
-	for distinct_name, type in odin_types {
-		if type.kind == .Distinct {
-			type_name :=
-				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
-			fmt.fprintfln(f, `		type %s* = %s`, distinct_name, type_name)
-		}
-	}
+	fmt.fprintln(f, `		)`)
+
 	for proc_name, type in odin_types {
 		if type.kind == .Proc {
 			fmt.fprintf(f, `		fn %s*(`, proc_name)

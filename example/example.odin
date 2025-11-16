@@ -50,7 +50,7 @@ Some_Struct3 :: struct {
 Some_Struct4 :: struct {
 	a: f32,
 	b: rune,
-	// c: Some_Struct3, TODO: Resolve order for type dependency
+	c: Some_Struct3, //TODO: Resolve order for type dependency
 	d: f64,
 }
 
