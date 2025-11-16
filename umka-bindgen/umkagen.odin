@@ -36,68 +36,20 @@ Type :: struct {
 	length:      int,
 }
 
-Odin_Type :: union {
-	Odin_Pointer_Type,
-	Odin_Proc_Type,
-	Odin_Param_Type,
-	Odin_Struct_Type,
-	Odin_Builtin_Type,
-	Odin_Array_Type,
-	Odin_Slice_Type,
-	Odin_Enum_Type,
-	Odin_Alias_Type,
-	Odin_Distinct_Type,
-}
-
-Odin_Builtin_Type :: string
-
-Odin_Pointer_Type :: struct {
-	points_to: string,
-}
-
-Odin_Proc_Type :: struct {
-	params:  [dynamic]Odin_Param_Type,
-	returns: [dynamic]Odin_Param_Type,
-}
 Odin_Param_Type :: struct {
 	name: string,
 	type: string,
 }
 
-Odin_Struct_Type :: struct {
-	fields: [dynamic]Odin_Field,
-}
 
 Odin_Field :: struct {
 	names: [dynamic]string,
 	type:  string,
 }
 
-Odin_Array_Type :: struct {
-	type:   string,
-	length: int,
-}
-
-Odin_Slice_Type :: struct {
-	type: string,
-}
-
-Odin_Enum_Type :: struct {
-	fields:       [dynamic]Odin_Enum_Field,
-	backing_type: string,
-}
-
 Odin_Enum_Field :: struct {
 	name:  string,
 	value: int,
-}
-
-Odin_Alias_Type :: struct {
-	base_type: string,
-}
-
-Odin_Distinct_Type :: struct {
-	base_type: string,
 }
 
 
@@ -169,21 +121,22 @@ main :: proc() {
 			if vd, ok = decl.derived_stmt.(^ast.Value_Decl); !ok do continue
 			if vd.is_mutable do continue
 			if len(vd.values) != 1 do continue
+			codegen_type := Type{}
 			#partial switch type in vd.values[0].derived_expr {
 			case ^ast.Struct_Type:
 				struct_ident := vd.names[0].derived_expr.(^ast.Ident)
 				struct_type := vd.values[0].derived_expr.(^ast.Struct_Type)
 				fmt.println("Found struct:", struct_ident.name)
-				codegen_struct := Odin_Struct_Type{}
+				codegen_type.kind = .Struct
 				for field in struct_type.fields.list {
 					codegen_field := Odin_Field{}
 					for name in field.names {
 						append(&codegen_field.names, name.derived_expr.(^ast.Ident).name)
 					}
 					codegen_field.type = field.type.derived_expr.(^ast.Ident).name
-					append(&codegen_struct.fields, codegen_field)
+					append(&codegen_type.fields, codegen_field)
 				}
-				odin_types[struct_ident.name] = codegen_struct
+				odin_types[struct_ident.name] = codegen_type
 			case ^ast.Array_Type:
 				array_ident := vd.names[0].derived_expr.(^ast.Ident).name
 				fmt.println("Found array:", array_ident)
@@ -192,26 +145,24 @@ main :: proc() {
 				if (array_type.len != nil) {
 					length_string := array_type.len.derived_expr.(^ast.Basic_Lit).tok.text
 					length, ok := strconv.parse_int(length_string)
-					codegen_array := Odin_Array_Type {
-						type   = type_name,
-						length = length,
-					}
-					odin_types[array_ident] = codegen_array
+					codegen_type.kind = .Array
+					codegen_type.base_type = type_name
+					codegen_type.length = length
+					odin_types[array_ident] = codegen_type
 				} else {
-					codegen_slice := Odin_Slice_Type {
-						type = type_name,
-					}
-					odin_types[array_ident] = codegen_slice
+					codegen_type.kind = .Slice
+					codegen_type.base_type = type_name
+					odin_types[array_ident] = codegen_type
 				}
 			case ^ast.Enum_Type:
 				enum_ident := vd.names[0].derived_expr.(^ast.Ident)
 				fmt.println("Found enum:", enum_ident.name)
 				enum_type := vd.values[0].derived_expr.(^ast.Enum_Type)
-				codegen_enum: Odin_Enum_Type
+				codegen_type.kind = .Enum
 				if enum_type.base_type != nil {
-					codegen_enum.backing_type = enum_type.base_type.derived_expr.(^ast.Ident).name
+					codegen_type.base_type = enum_type.base_type.derived_expr.(^ast.Ident).name
 				} else {
-					codegen_enum.backing_type = "int"
+					codegen_type.base_type = "int"
 				}
 				val := 0
 				for field in enum_type.fields {
@@ -236,23 +187,25 @@ main :: proc() {
 							}
 						}
 					}
-					append(&codegen_enum.fields, codegen_enum_field)
+					append(&codegen_type.enum_fields, codegen_enum_field)
 					val += 1
 				}
-				odin_types[enum_ident.name] = codegen_enum
+				odin_types[enum_ident.name] = codegen_type
 			case ^ast.Ident:
 				ident := vd.names[0].derived_expr.(^ast.Ident).name
 				fmt.println("Found alias:", ident)
 				base_type := vd.values[0].derived_expr.(^ast.Ident).name
-				odin_types[ident] = Odin_Alias_Type{base_type}
+				codegen_type.kind = .Alias
+				codegen_type.base_type = base_type
+				odin_types[ident] = codegen_type
 			case ^ast.Distinct_Type:
-				codegen_distinct: Odin_Distinct_Type
+				codegen_type.kind = .Distinct
 				ident := vd.names[0].derived_expr.(^ast.Ident).name
 				fmt.println("Found disctinc:", ident)
 				base_type :=
 					vd.values[0].derived_expr.(^ast.Distinct_Type).type.derived_expr.(^ast.Ident).name
-				codegen_distinct = {base_type}
-				odin_types[ident] = codegen_distinct
+				codegen_type.base_type = base_type
+				odin_types[ident] = codegen_type
 			}
 
 			if _, ok = vd.values[0].derived_expr.(^ast.Proc_Lit); !ok do continue
@@ -261,8 +214,7 @@ main :: proc() {
 			attr_ident := vd.attributes[0].elems[0].derived_expr.(^ast.Ident)
 			// fmt.println(attr_ident)
 			if attr_ident.name != "umka_fn" do continue
-
-			codegen_proc := Odin_Proc_Type{}
+			codegen_type.kind = .Proc
 
 			proc_ident := vd.names[0].derived_expr.(^ast.Ident)
 			fmt.println()
@@ -280,7 +232,7 @@ main :: proc() {
 									name = param_name.derived_expr.(^ast.Ident).name,
 									type = param_type.name,
 								}
-								append(&codegen_proc.params, codegen_param)
+								append(&codegen_type.params, codegen_param)
 
 								// fmt.printfln(
 								// 	"arg %d:\n\tname: %v,\n\ttype: %v",
@@ -305,7 +257,7 @@ main :: proc() {
 									name = result_name.derived_expr.(^ast.Ident).name,
 								}
 								odin_param_type.type = result_type.name
-								append(&codegen_proc.returns, odin_param_type)
+								append(&codegen_type.returns, odin_param_type)
 								// fmt.printfln(
 								// 	"result %d: %v",
 								// 	result_index,
@@ -315,11 +267,10 @@ main :: proc() {
 								// fmt.printfln("result type: %v", result_type.name)
 							}
 							if len(result.names) == 0 {
-								odin_result_type: Odin_Type = Odin_Builtin_Type{}
-								append(
-									&codegen_proc.returns,
-									Odin_Param_Type{type = result_type.name},
-								)
+								odin_result_type := Odin_Param_Type {
+									type = result_type.name,
+								}
+								append(&codegen_type.returns, odin_result_type)
 
 								// fmt.printfln("result type: %v", result_type.name)
 							}
@@ -327,7 +278,7 @@ main :: proc() {
 					}
 				}
 			}
-			odin_types[codegen_proc_name] = codegen_proc
+			odin_types[codegen_proc_name] = codegen_type
 
 
 			// cmd := Codegen_Command {
@@ -359,7 +310,7 @@ import "core:fmt"
 	)
 	// if proc_type, proc_type_ok := vd.values[0].derived_expr.(^ast.Proc_Lit); proc_type_ok {
 	for proc_name, type in odin_types {
-		if type, type_ok := type.(Odin_Proc_Type); type_ok {
+		if type.kind == .Proc {
 			fmt.println(type)
 			for param in type.params {
 				param_type := param.type
@@ -393,16 +344,18 @@ import "core:fmt"
 			}
 			if len(type.returns) > 0 {
 				stack_slot := StackSlot.ptrVal
-				#partial switch odin_type in odin_types[type.returns[0].type] {
-				case Odin_Distinct_Type:
+				type_name := type.returns[0].type
+				odin_type := odin_types[type_name]
+				#partial switch odin_type.kind {
+				case .Distinct:
 					if umka_type, ok := odin_to_umka[odin_type.base_type]; ok {
 						stack_slot = umka_type.stack_slot
 					}
-				case Odin_Builtin_Type:
-					if umka_type, ok := odin_to_umka[odin_type]; ok {
+				case .Builtin:
+					if umka_type, ok := odin_to_umka[type_name]; ok {
 						stack_slot = umka_type.stack_slot
 					}
-				case Odin_Alias_Type:
+				case .Alias:
 					if umka_type, ok := odin_to_umka[odin_type.base_type]; ok {
 						stack_slot = umka_type.stack_slot
 					}
@@ -465,7 +418,7 @@ import "core:fmt"
 	}
 	fmt.fprintln(f, `umka_add_bindings :: proc(ctx: ^umka.Context) {`)
 	for proc_name, type in odin_types {
-		if type, type_ok := type.(Odin_Proc_Type); type_ok {
+		if type.kind == .Proc {
 			fmt.fprintfln(f, `	fmt.println("Adding %s")`, proc_name)
 			fmt.fprintfln(f, `	umka.AddFunc(ctx^, "%s", umka_%s)`, proc_name, proc_name)
 		}
@@ -475,7 +428,7 @@ import "core:fmt"
 		"bindings.um",`)
 	fmt.fprintln(f, "		`")
 	for struct_name, type in odin_types {
-		if type, type_ok := type.(Odin_Struct_Type); type_ok {
+		if type.kind == .Struct {
 			fmt.fprintfln(f, `		type %s* = struct {{`, struct_name)
 			for field in type.fields {
 				fmt.fprintf(f, `			`)
@@ -494,20 +447,21 @@ import "core:fmt"
 		}
 	}
 	for array_name, type in odin_types {
-		if type, type_ok := type.(Odin_Array_Type); type_ok {
-			type_name := type.type in odin_to_umka ? odin_to_umka[type.type].name : type.type
+		if type.kind == .Array {
+			type_name :=
+				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
 			fmt.fprintfln(f, `		type %s* = [%d]%s`, array_name, type.length, type_name)
 		}
 	}
 	// TODO: Slices?
 	for enum_name, type in odin_types {
-		if type, type_ok := type.(Odin_Enum_Type); type_ok {
+		if type.kind == .Enum {
 
 			backing_string :=
-				type.backing_type != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.backing_type].name) : ""
+				type.base_type != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type].name) : ""
 			fmt.fprintfln(f, `		type %s* = enum %s{{`, enum_name, backing_string)
 			prev_val := -1
-			for field in type.fields {
+			for field in type.enum_fields {
 				if field.value - prev_val > 1 {
 					fmt.fprintfln(f, `			%s = %d`, field.name, field.value)
 				} else {
@@ -519,21 +473,21 @@ import "core:fmt"
 		}
 	}
 	for alias_name, type in odin_types {
-		if type, type_ok := type.(Odin_Alias_Type); type_ok {
+		if type.kind == .Alias {
 			type_name :=
 				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
 			fmt.fprintfln(f, `		type %s* = %s`, alias_name, type_name)
 		}
 	}
 	for distinct_name, type in odin_types {
-		if type, type_ok := type.(Odin_Distinct_Type); type_ok {
+		if type.kind == .Distinct {
 			type_name :=
 				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
 			fmt.fprintfln(f, `		type %s* = %s`, distinct_name, type_name)
 		}
 	}
 	for proc_name, type in odin_types {
-		if type, type_ok := type.(Odin_Proc_Type); type_ok {
+		if type.kind == .Proc {
 			fmt.fprintf(f, `		fn %s*(`, proc_name)
 			if len(type.params) < 1 {
 				fmt.fprint(f, `)`)
