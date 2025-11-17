@@ -2,6 +2,7 @@ package example
 
 import "../umka"
 import "base:runtime"
+import "core:c"
 import "core:fmt"
 import "core:log"
 
@@ -41,7 +42,8 @@ Some_Struct :: struct {
 
 Some_Struct2 :: struct {
 	a, b: int,
-	c:    bool,
+	// d:    c.int,
+	e:    bool,
 }
 
 Some_Struct3 :: struct {

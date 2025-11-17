@@ -157,6 +157,15 @@ main :: proc() {
 				fmt.println("Found array:", array_ident)
 				array_type := vd.values[0].derived_expr.(^ast.Array_Type)
 				type_name := array_type.elem.derived_expr.(^ast.Ident).name
+				if type_name in codegen_type.dependencies == false {
+					if type_name in odin_types {
+						if odin_types[type_name].kind != .Builtin {
+							codegen_type.dependencies[type_name] = {}
+						}
+					} else {
+						codegen_type.dependencies[type_name] = {}
+					}
+				}
 				if (array_type.len != nil) {
 					length_string := array_type.len.derived_expr.(^ast.Basic_Lit).tok.text
 					length, ok := strconv.parse_int(length_string)
@@ -212,6 +221,15 @@ main :: proc() {
 				base_type := vd.values[0].derived_expr.(^ast.Ident).name
 				codegen_type.kind = .Alias
 				codegen_type.base_type = base_type
+				if base_type in codegen_type.dependencies == false {
+					if base_type in odin_types {
+						if odin_types[base_type].kind != .Builtin {
+							codegen_type.dependencies[base_type] = {}
+						}
+					} else {
+						codegen_type.dependencies[base_type] = {}
+					}
+				}
 				odin_types[ident] = codegen_type
 			case ^ast.Distinct_Type:
 				codegen_type.kind = .Distinct
@@ -220,6 +238,15 @@ main :: proc() {
 				base_type :=
 					vd.values[0].derived_expr.(^ast.Distinct_Type).type.derived_expr.(^ast.Ident).name
 				codegen_type.base_type = base_type
+				if base_type in codegen_type.dependencies == false {
+					if base_type in odin_types {
+						if odin_types[base_type].kind != .Builtin {
+							codegen_type.dependencies[base_type] = {}
+						}
+					} else {
+						codegen_type.dependencies[base_type] = {}
+					}
+				}
 				odin_types[ident] = codegen_type
 			}
 
@@ -441,65 +468,122 @@ import "core:fmt"
 		}
 	}
 
-	added_types: fmt.fprintfln(f, `	rv := umka.AddModule(
+	unresolved_types: map[string]struct {
+	}
+	added_types: map[string]struct {
+	}
+	prev_unresolved_count := 0
+	fmt.fprintfln(f, `	rv := umka.AddModule(
 		ctx^,
 		"bindings.um",`)
 	fmt.fprintln(f, "		`")
 	fmt.fprintln(f, `		type (`)
-	for struct_name, type in odin_types {
-		if type.kind == .Struct {
-			fmt.fprintfln(f, `			%s* = struct {{`, struct_name)
-			for field in type.fields {
-				fmt.fprintf(f, `				`)
-				for name, i in field.names {
-					type_name :=
-						field.type in odin_to_umka ? odin_to_umka[field.type].name : field.type
-					if i < len(field.names) - 1 {
-						fmt.fprintf(f, `%s,`, name)
-					} else {
-						fmt.fprintfln(f, `%s: %s`, name, type_name)
+	for {
+		for struct_name, type in odin_types {
+			if type.kind == .Struct && struct_name in added_types == false {
+				unresolved_dependency := false
+				for dependency in type.dependencies {
+					if dependency in added_types == false {
+						unresolved_dependency = true
+						unresolved_types[struct_name] = {}
 					}
 				}
-			}
-			fmt.fprintfln(f, `			}}`)
-
-		}
-	}
-	for array_name, type in odin_types {
-		if type.kind == .Array {
-			type_name :=
-				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
-			fmt.fprintfln(f, `			%s* = [%d]%s`, array_name, type.length, type_name)
-		}
-	}
-	// TODO: Slices?
-	for enum_name, type in odin_types {
-		if type.kind == .Enum {
-
-			backing_string :=
-				type.base_type != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type].name) : ""
-			fmt.fprintfln(f, `			%s* = enum %s{{`, enum_name, backing_string)
-			prev_val := -1
-			for field in type.enum_fields {
-				if field.value - prev_val > 1 {
-					fmt.fprintfln(f, `				%s = %d`, field.name, field.value)
-				} else {
-					fmt.fprintfln(f, `				%s`, field.name)
+				if unresolved_dependency == true {
+					continue
+				} else if struct_name in unresolved_types {
+					delete_key(&unresolved_types, struct_name)
 				}
-				prev_val = field.value
+				fmt.fprintfln(f, `			%s* = struct {{`, struct_name)
+				for field in type.fields {
+					fmt.fprintf(f, `				`)
+					for name, i in field.names {
+						type_name :=
+							field.type in odin_to_umka ? odin_to_umka[field.type].name : field.type
+						if i < len(field.names) - 1 {
+							fmt.fprintf(f, `%s,`, name)
+						} else {
+							fmt.fprintfln(f, `%s: %s`, name, type_name)
+						}
+					}
+				}
+				fmt.fprintfln(f, `			}}`)
+				added_types[struct_name] = {}
 			}
-			fmt.fprintfln(f, `			}}`)
 		}
-	}
-	for alias_name, type in odin_types {
-		if type.kind == .Alias || type.kind == .Distinct {
-			type_name :=
-				type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
-			fmt.fprintfln(f, `			%s* = %s`, alias_name, type_name)
+		for array_name, type in odin_types {
+			if type.kind == .Array && array_name in added_types == false {
+				unresolved_dependency := false
+				for dependency in type.dependencies {
+					if dependency in added_types == false {
+						unresolved_dependency = true
+						unresolved_types[array_name] = {}
+					}
+				}
+				if unresolved_dependency == true {
+					continue
+				} else if array_name in unresolved_types {
+					delete_key(&unresolved_types, array_name)
+				}
+				type_name :=
+					type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
+				fmt.fprintfln(f, `			%s* = [%d]%s`, array_name, type.length, type_name)
+				added_types[array_name] = {}
+			}
+		}
+		// TODO: Slices?
+		for enum_name, type in odin_types {
+			if type.kind == .Enum && enum_name in added_types == false {
+
+				backing_string :=
+					type.base_type != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type].name) : ""
+				fmt.fprintfln(f, `			%s* = enum %s{{`, enum_name, backing_string)
+				prev_val := -1
+				for field in type.enum_fields {
+					if field.value - prev_val > 1 {
+						fmt.fprintfln(f, `				%s = %d`, field.name, field.value)
+					} else {
+						fmt.fprintfln(f, `				%s`, field.name)
+					}
+					prev_val = field.value
+				}
+				fmt.fprintfln(f, `			}}`)
+				added_types[enum_name] = {}
+			}
+		}
+		for alias_name, type in odin_types {
+			if (type.kind == .Alias || type.kind == .Distinct) &&
+			   alias_name in added_types == false {
+				unresolved_dependency := false
+				for dependency in type.dependencies {
+					if dependency in added_types == false {
+						unresolved_dependency = true
+						unresolved_types[alias_name] = {}
+					}
+				}
+				if unresolved_dependency == true {
+					continue
+				} else if alias_name in unresolved_types {
+					delete_key(&unresolved_types, alias_name)
+				}
+				type_name :=
+					type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
+				fmt.fprintfln(f, `			%s* = %s`, alias_name, type_name)
+				added_types[alias_name] = {}
+			}
+		}
+		unresolved_count := len(unresolved_types)
+		fmt.printfln("Unresolved types: %#v", unresolved_types)
+		if unresolved_count == 0 {
+			break
+		} else {
+			assert(
+				prev_unresolved_count != unresolved_count,
+				fmt.aprintf("Unresolved types: %#v", unresolved_types),
+			)
+			prev_unresolved_count = unresolved_count
 		}
 	}
 	fmt.fprintln(f, `		)`)
-
 	for proc_name, type in odin_types {
 		if type.kind == .Proc {
 			fmt.fprintf(f, `		fn %s*(`, proc_name)
