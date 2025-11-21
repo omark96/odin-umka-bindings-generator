@@ -9,7 +9,7 @@ import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
 import "core:strconv"
-import "vendor:raylib"
+import rl "vendor:raylib"
 
 
 Type_Kind :: enum {
@@ -103,8 +103,7 @@ main :: proc() {
 		}
 	}
 	fmt.println("Init")
-
-	pkg, ok := parser.parse_package_from_path("./example")
+	pkg, ok := parser.parse_package_from_path("./raylib")
 	if !ok {
 		fmt.println("error: failed to read package")
 		os.exit(1)
@@ -120,12 +119,15 @@ main :: proc() {
 			//  ^~~~attribute     ^~~~name     ^~~~value
 			vd: ^ast.Value_Decl
 			ok: bool
-
 			if vd, ok = decl.derived_stmt.(^ast.Value_Decl); !ok do continue
 			if vd.is_mutable do continue
 			if len(vd.values) != 1 do continue
 			codegen_type := Type{}
 			#partial switch type in vd.values[0].derived_expr {
+			case ^ast.Basic_Lit:
+				{
+					fmt.println(type)
+				}
 			case ^ast.Struct_Type:
 				struct_ident := vd.names[0].derived_expr.(^ast.Ident)
 				struct_type := vd.values[0].derived_expr.(^ast.Struct_Type)
@@ -138,7 +140,24 @@ main :: proc() {
 
 						append(&codegen_field.names, field_name)
 					}
-					type_name := field.type.derived_expr.(^ast.Ident).name
+					type_name: string
+					#partial switch field_type in field.type.derived_expr {
+					case ^ast.Selector_Expr:
+						type_name = fmt.aprintf(
+							"%#v.%#v",
+							field_type.expr.derived_expr.(^ast.Ident).name,
+							field_type.field.name,
+						)
+					case ^ast.Ident:
+						type_name = field_type.name
+					case ^ast.Multi_Pointer_Type:
+						#partial switch mp_type in field_type.elem.derived_expr {
+						case ^ast.Selector_Expr:
+							fmt.println(mp_type.field.name)
+						case ^ast.Ident:
+							fmt.println(mp_type.name)
+						}
+					}
 					if type_name in codegen_type.dependencies == false {
 						if type_name in odin_types {
 							if odin_types[type_name].kind != .Builtin {
@@ -184,7 +203,16 @@ main :: proc() {
 				enum_type := vd.values[0].derived_expr.(^ast.Enum_Type)
 				codegen_type.kind = .Enum
 				if enum_type.base_type != nil {
-					codegen_type.base_type = enum_type.base_type.derived_expr.(^ast.Ident).name
+					#partial switch base_type in enum_type.base_type.derived_expr {
+					case ^ast.Ident:
+						codegen_type.base_type = base_type.name
+					case ^ast.Selector_Expr:
+						codegen_type.base_type = fmt.aprintf(
+							"%#v.%#v",
+							base_type.expr.derived_expr.(^ast.Ident).name,
+							base_type.field.name,
+						)
+					}
 				} else {
 					codegen_type.base_type = "int"
 				}
@@ -201,7 +229,6 @@ main :: proc() {
 								name  = field.derived_expr.(^ast.Field_Value).field.derived_expr.(^ast.Ident).name,
 								value = val,
 							}
-
 						}
 					case ^ast.Ident:
 						{
@@ -235,19 +262,24 @@ main :: proc() {
 				codegen_type.kind = .Distinct
 				ident := vd.names[0].derived_expr.(^ast.Ident).name
 				fmt.println("Found disctinc:", ident)
-				base_type :=
-					vd.values[0].derived_expr.(^ast.Distinct_Type).type.derived_expr.(^ast.Ident).name
-				codegen_type.base_type = base_type
-				if base_type in codegen_type.dependencies == false {
-					if base_type in odin_types {
-						if odin_types[base_type].kind != .Builtin {
-							codegen_type.dependencies[base_type] = {}
-						}
-					} else {
-						codegen_type.dependencies[base_type] = {}
-					}
+				#partial switch base_type in
+					vd.values[0].derived_expr.(^ast.Distinct_Type).type.derived_expr {
+				case ^ast.Ident:
+					fmt.println(base_type.name)
+				case ^ast.Array_Type:
+					fmt.println(base_type.elem.derived_expr.(^ast.Ident).name)
 				}
-				odin_types[ident] = codegen_type
+			// codegen_type.base_type = base_type.name
+			// if base_type in codegen_type.dependencies == false {
+			// 	if base_type in odin_types {
+			// 		if odin_types[base_type].kind != .Builtin {
+			// 			codegen_type.dependencies[base_type] = {}
+			// 		}
+			// 	} else {
+			// 		codegen_type.dependencies[base_type] = {}
+			// 	}
+			// }
+			// odin_types[ident] = codegen_type
 			}
 
 			if _, ok = vd.values[0].derived_expr.(^ast.Proc_Lit); !ok do continue
@@ -333,13 +365,13 @@ main :: proc() {
 			// append(&cmds, cmd)
 		}
 	}
-	for name, type in odin_types {
-		if type.kind != .Builtin {
-			fmt.printfln("%v: %#v", name, type)
-		}
-	}
+	// for name, type in odin_types {
+	// 	if type.kind != .Builtin {
+	// 		fmt.printfln("%v: %#v", name, type)
+	// 	}
+	// }
 
-	f, _ := os.open("./example/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
+	f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
 	defer os.close(f)
 	fmt.fprintln(
 		f,

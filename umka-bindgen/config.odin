@@ -3,9 +3,9 @@ package umkagen
 
 
 odin_to_umka := map[string]Umka_Builtin_Type {
-	"i8" = Umka_Builtin_Type{name = "i8", stack_slot = .intVal},
-	"i16" = Umka_Builtin_Type{name = "i16", stack_slot = .intVal},
-	"i32" = Umka_Builtin_Type{name = "i32", stack_slot = .intVal},
+	"i8" = Umka_Builtin_Type{name = "int8", stack_slot = .intVal},
+	"i16" = Umka_Builtin_Type{name = "int16", stack_slot = .intVal},
+	"i32" = Umka_Builtin_Type{name = "int32", stack_slot = .intVal},
 	"i64" = Umka_Builtin_Type{name = "int", stack_slot = .intVal},
 	"int" = Umka_Builtin_Type{name = "int", stack_slot = .intVal},
 	"u8" = Umka_Builtin_Type{name = "uint8", stack_slot = .intVal},
@@ -20,6 +20,8 @@ odin_to_umka := map[string]Umka_Builtin_Type {
 	"rune" = Umka_Builtin_Type{name = "uint32", stack_slot = .intVal},
 	"cstring" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
 	"string" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
+	"c.int" = Umka_Builtin_Type{name = "int32", stack_slot = .ptrVal},
+	"c.uint" = Umka_Builtin_Type{name = "uint32", stack_slot = .ptrVal},
 }
 
 odin_types := map[string]Type {
@@ -81,4 +83,6 @@ odin_types := map[string]Type {
 	"u8" = Type{kind = .Builtin},
 	"uint" = Type{kind = .Builtin},
 	"uintptr" = Type{kind = .Builtin},
+	"c.int" = Type{kind = .Builtin},
+	"c.uint" = Type{kind = .Builtin},
 }

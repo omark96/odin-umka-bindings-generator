@@ -3,9 +3,12 @@ package example
 import "../umka"
 import "base:runtime"
 import "core:c"
+import "core:c"
+import "core:c/libc"
 import "core:fmt"
 import "core:log"
 
+// SOME_CONSTANT :: 'a' // TODO: Constants
 warn_callback: umka.WarningCallback : proc "c" (err: ^umka.Error) {
 	context = runtime.default_context()
 	context.logger = log.create_console_logger()
@@ -35,6 +38,7 @@ umka_assert :: proc(rv: bool) {
 	}
 }
 
+
 Some_Struct :: struct {
 	a: int,
 	b: bool,
@@ -42,7 +46,7 @@ Some_Struct :: struct {
 
 Some_Struct2 :: struct {
 	a, b: int,
-	// d:    c.int,
+	d:    c.int,
 	e:    bool,
 }
 
@@ -160,15 +164,5 @@ main :: proc() {
 	umka_assert(rv)
 
 	umka.Run(g_umka_ctx)
-	// umka_sum: umka.FuncContext
-	// umka.GetFunc(g_umka_ctx, nil, "sum", &umka_sum)
-	// umka.Call(g_umka_ctx, &umka_sum)
 
-	// umka_print_string: umka.FuncContext
-	// umka.GetFunc(g_umka_ctx, nil, "print_string_func", &umka_print_string)
-	// umka.Call(g_umka_ctx, &umka_print_string)
-
-	// umka_print_struct: umka.FuncContext
-	// umka.GetFunc(g_umka_ctx, nil, "print_struct_func", &umka_print_struct)
-	// umka.Call(g_umka_ctx, &umka_print_struct)
 }
