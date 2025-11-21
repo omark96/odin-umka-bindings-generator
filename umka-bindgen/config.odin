@@ -83,6 +83,7 @@ odin_types := map[string]Type {
 	"u8" = Type{kind = .Builtin},
 	"uint" = Type{kind = .Builtin},
 	"uintptr" = Type{kind = .Builtin},
+	"quaternion128" = Type{kind = .Array, base_type = "f32", length = 4},
 	"c.int" = Type{kind = .Builtin},
 	"c.uint" = Type{kind = .Builtin},
 }

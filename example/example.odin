@@ -60,6 +60,13 @@ Some_Struct4 :: struct {
 	d: f64,
 }
 
+Some_Struct5 :: struct {
+	a: [4]u8,
+	b: [^]int,
+	c: []c.int,
+	d: [^]c.int,
+}
+
 Some_Array :: [4]int
 Some_Array2 :: [5]u8
 Some_Slice :: []u8

@@ -23,6 +23,7 @@ Type_Kind :: enum {
 	Enum,
 	Alias,
 	Distinct,
+	MultiPointer,
 }
 
 Type :: struct {
@@ -103,7 +104,7 @@ main :: proc() {
 		}
 	}
 	fmt.println("Init")
-	pkg, ok := parser.parse_package_from_path("./raylib")
+	pkg, ok := parser.parse_package_from_path("./example")
 	if !ok {
 		fmt.println("error: failed to read package")
 		os.exit(1)
@@ -126,7 +127,7 @@ main :: proc() {
 			#partial switch type in vd.values[0].derived_expr {
 			case ^ast.Basic_Lit:
 				{
-					fmt.println(type)
+					// fmt.println(type)
 				}
 			case ^ast.Struct_Type:
 				struct_ident := vd.names[0].derived_expr.(^ast.Ident)
@@ -153,9 +154,13 @@ main :: proc() {
 					case ^ast.Multi_Pointer_Type:
 						#partial switch mp_type in field_type.elem.derived_expr {
 						case ^ast.Selector_Expr:
-							fmt.println(mp_type.field.name)
+							type_name = fmt.aprintf(
+								"%#v.%#v",
+								mp_type.expr.derived_expr.(^ast.Ident).name,
+								mp_type.field.name,
+							)
 						case ^ast.Ident:
-							fmt.println(mp_type.name)
+							type_name = mp_type.name
 						}
 					}
 					if type_name in codegen_type.dependencies == false {
@@ -371,7 +376,7 @@ main :: proc() {
 	// 	}
 	// }
 
-	f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
+	f, _ := os.open("./example/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
 	defer os.close(f)
 	fmt.fprintln(
 		f,
@@ -604,7 +609,11 @@ import "core:fmt"
 			}
 		}
 		unresolved_count := len(unresolved_types)
-		fmt.printfln("Unresolved types: %#v", unresolved_types)
+		fmt.printfln("Unresolved types:")
+		for unresolved in unresolved_types {
+			fmt.println(unresolved)
+			fmt.printfln("%#v", odin_types[unresolved])
+		}
 		if unresolved_count == 0 {
 			break
 		} else {

@@ -19,16 +19,16 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				sampleSize: uint32
 				channels: uint32
 			}
+			Sound* = struct {
+				stream: AudioStream
+				frameCount: uint32
+			}
 			Music* = struct {
 				stream: AudioStream
 				frameCount: uint32
 				looping: bool
 				ctxType: int32
 				ctxData: ^void
-			}
-			Sound* = struct {
-				stream: AudioStream
-				frameCount: uint32
 			}
 			Wave* = struct {
 				frameCount: uint32
@@ -43,97 +43,68 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				width: real32
 				height: real32
 			}
+			Vector2* = [2]real32
+			quaternion128* = [4]real32
 			Vector3* = [3]real32
 			Vector4* = [4]real32
-			Vector2* = [2]real32
+			TraceLogLevel* = enum (int32) {
+				ALL
+				TRACE
+				DEBUG
+				INFO
+				WARNING
+				ERROR
+				FATAL
+				NONE
+			}
+			MouseButton* = enum (int32) {
+				LEFT
+				RIGHT
+				MIDDLE
+				SIDE
+				EXTRA
+				FORWARD
+				BACK
+			}
+			TextureFilter* = enum (int32) {
+				POINT
+				BILINEAR
+				TRILINEAR
+				ANISOTROPIC_4X
+				ANISOTROPIC_8X
+				ANISOTROPIC_16X
+			}
+			TextureWrap* = enum (int32) {
+				REPEAT
+				CLAMP
+				MIRROR_REPEAT
+				MIRROR_CLAMP
+			}
+			CubemapLayout* = enum (int32) {
+				AUTO_DETECT
+				LINE_VERTICAL
+				LINE_HORIZONTAL
+				CROSS_THREE_BY_FOUR
+				CROSS_FOUR_BY_THREE
+			}
+			Gesture* = enum (uint32) {
+				TAP
+				DOUBLETAP
+				HOLD
+				DRAG
+				SWIPE_RIGHT
+				SWIPE_LEFT
+				SWIPE_UP
+				SWIPE_DOWN
+				PINCH_IN
+				PINCH_OUT
+			}
 			CameraMode* = enum (int32) {
 				CUSTOM
 				FREE
 				ORBITAL
 				FIRST_PERSON
 				THIRD_PERSON
-			}
-			ShaderUniformDataType* = enum (int32) {
-				FLOAT
-				VEC2
-				VEC3
-				VEC4
-				INT
-				IVEC2
-				IVEC3
-				IVEC4
-				SAMPLER2D
-			}
-			ConfigFlag* = enum (int32) {
-				VSYNC_HINT = 6
-				FULLSCREEN_MODE
-				WINDOW_RESIZABLE
-				WINDOW_UNDECORATED
-				WINDOW_HIDDEN = 7
-				WINDOW_MINIMIZED = 9
-				WINDOW_MAXIMIZED
-				WINDOW_UNFOCUSED
-				WINDOW_TOPMOST
-				WINDOW_ALWAYS_RUN
-				WINDOW_TRANSPARENT
-				WINDOW_HIGHDPI = 13
-				WINDOW_MOUSE_PASSTHROUGH
-				BORDERLESS_WINDOWED_MODE
-				MSAA_4X_HINT
-				INTERLACED_HINT = 16
-			}
-			PixelFormat* = enum (int32) {
-				UNKNOWN
-				UNCOMPRESSED_GRAYSCALE
-				UNCOMPRESSED_GRAY_ALPHA
-				UNCOMPRESSED_R5G6B5
-				UNCOMPRESSED_R8G8B8
-				UNCOMPRESSED_R5G5B5A1
-				UNCOMPRESSED_R4G4B4A4
-				UNCOMPRESSED_R8G8B8A8
-				UNCOMPRESSED_R32
-				UNCOMPRESSED_R32G32B32
-				UNCOMPRESSED_R32G32B32A32
-				UNCOMPRESSED_R16
-				UNCOMPRESSED_R16G16B16
-				UNCOMPRESSED_R16G16B16A16
-				COMPRESSED_DXT1_RGB
-				COMPRESSED_DXT1_RGBA
-				COMPRESSED_DXT3_RGBA
-				COMPRESSED_DXT5_RGBA
-				COMPRESSED_ETC1_RGB
-				COMPRESSED_ETC2_RGB
-				COMPRESSED_ETC2_EAC_RGBA
-				COMPRESSED_PVRT_RGB
-				COMPRESSED_PVRT_RGBA
-				COMPRESSED_ASTC_4x4_RGBA
-				COMPRESSED_ASTC_8x8_RGBA
-			}
-			MaterialMapIndex* = enum (int32) {
-				ALBEDO
-				METALNESS
-				NORMAL
-				ROUGHNESS
-				OCCLUSION
-				EMISSION
-				HEIGHT
-				CUBEMAP
-				IRRADIANCE
-				PREFILTER
-				BRDF
-			}
-			MouseCursor* = enum (int32) {
-				DEFAULT
-				ARROW
-				IBEAM
-				CROSSHAIR
-				POINTING_HAND
-				RESIZE_EW
-				RESIZE_NS
-				RESIZE_NWSE
-				RESIZE_NESW
-				RESIZE_ALL
-				NOT_ALLOWED
 			}
 			CameraProjection* = enum (int32) {
 				PERSPECTIVE
@@ -170,11 +141,67 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				VERTEX_BONEWEIGHTS
 				BONE_MATRICES
 			}
-			TextureWrap* = enum (int32) {
-				REPEAT
-				CLAMP
-				MIRROR_REPEAT
-				MIRROR_CLAMP
+			GamepadButton* = enum (int32) {
+				UNKNOWN
+				LEFT_FACE_UP
+				LEFT_FACE_RIGHT
+				LEFT_FACE_DOWN
+				LEFT_FACE_LEFT
+				RIGHT_FACE_UP
+				RIGHT_FACE_RIGHT
+				RIGHT_FACE_DOWN
+				RIGHT_FACE_LEFT
+				LEFT_TRIGGER_1
+				LEFT_TRIGGER_2
+				RIGHT_TRIGGER_1
+				RIGHT_TRIGGER_2
+				MIDDLE_LEFT
+				MIDDLE
+				MIDDLE_RIGHT
+				LEFT_THUMB
+				RIGHT_THUMB
+			}
+			ShaderUniformDataType* = enum (int32) {
+				FLOAT
+				VEC2
+				VEC3
+				VEC4
+				INT
+				IVEC2
+				IVEC3
+				IVEC4
+				SAMPLER2D
+			}
+			FontType* = enum (int32) {
+				DEFAULT
+				BITMAP
+				SDF
+			}
+			MouseCursor* = enum (int32) {
+				DEFAULT
+				ARROW
+				IBEAM
+				CROSSHAIR
+				POINTING_HAND
+				RESIZE_EW
+				RESIZE_NS
+				RESIZE_NWSE
+				RESIZE_NESW
+				RESIZE_ALL
+				NOT_ALLOWED
+			}
+			MaterialMapIndex* = enum (int32) {
+				ALBEDO
+				METALNESS
+				NORMAL
+				ROUGHNESS
+				OCCLUSION
+				EMISSION
+				HEIGHT
+				CUBEMAP
+				IRRADIANCE
+				PREFILTER
+				BRDF
 			}
 			BlendMode* = enum (int32) {
 				ALPHA
@@ -186,59 +213,28 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				CUSTOM
 				CUSTOM_SEPARATE
 			}
-			Gesture* = enum (uint32) {
-				TAP
-				DOUBLETAP
-				HOLD
-				DRAG
-				SWIPE_RIGHT
-				SWIPE_LEFT
-				SWIPE_UP
-				SWIPE_DOWN
-				PINCH_IN
-				PINCH_OUT
-			}
-			GamepadAxis* = enum (int32) {
-				LEFT_X
-				LEFT_Y
-				RIGHT_X
-				RIGHT_Y
-				LEFT_TRIGGER
-				RIGHT_TRIGGER
+			ConfigFlag* = enum (int32) {
+				VSYNC_HINT = 6
+				FULLSCREEN_MODE
+				WINDOW_RESIZABLE
+				WINDOW_UNDECORATED
+				WINDOW_HIDDEN = 7
+				WINDOW_MINIMIZED = 9
+				WINDOW_MAXIMIZED
+				WINDOW_UNFOCUSED
+				WINDOW_TOPMOST
+				WINDOW_ALWAYS_RUN
+				WINDOW_TRANSPARENT
+				WINDOW_HIGHDPI = 13
+				WINDOW_MOUSE_PASSTHROUGH
+				BORDERLESS_WINDOWED_MODE
+				MSAA_4X_HINT
+				INTERLACED_HINT = 16
 			}
 			NPatchLayout* = enum (int32) {
 				NINE_PATCH
 				THREE_PATCH_VERTICAL
 				THREE_PATCH_HORIZONTAL
-			}
-			MouseButton* = enum (int32) {
-				LEFT
-				RIGHT
-				MIDDLE
-				SIDE
-				EXTRA
-				FORWARD
-				BACK
-			}
-			CubemapLayout* = enum (int32) {
-				AUTO_DETECT
-				LINE_VERTICAL
-				LINE_HORIZONTAL
-				CROSS_THREE_BY_FOUR
-				CROSS_FOUR_BY_THREE
-			}
-			FontType* = enum (int32) {
-				DEFAULT
-				BITMAP
-				SDF
-			}
-			TextureFilter* = enum (int32) {
-				POINT
-				BILINEAR
-				TRILINEAR
-				ANISOTROPIC_4X
-				ANISOTROPIC_8X
-				ANISOTROPIC_16X
 			}
 			KeyboardKey* = enum (int32) {
 				KEY_NULL
@@ -352,48 +348,42 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				VOLUME_UP = 24
 				VOLUME_DOWN
 			}
-			GamepadButton* = enum (int32) {
+			PixelFormat* = enum (int32) {
 				UNKNOWN
-				LEFT_FACE_UP
-				LEFT_FACE_RIGHT
-				LEFT_FACE_DOWN
-				LEFT_FACE_LEFT
-				RIGHT_FACE_UP
-				RIGHT_FACE_RIGHT
-				RIGHT_FACE_DOWN
-				RIGHT_FACE_LEFT
-				LEFT_TRIGGER_1
-				LEFT_TRIGGER_2
-				RIGHT_TRIGGER_1
-				RIGHT_TRIGGER_2
-				MIDDLE_LEFT
-				MIDDLE
-				MIDDLE_RIGHT
-				LEFT_THUMB
-				RIGHT_THUMB
+				UNCOMPRESSED_GRAYSCALE
+				UNCOMPRESSED_GRAY_ALPHA
+				UNCOMPRESSED_R5G6B5
+				UNCOMPRESSED_R8G8B8
+				UNCOMPRESSED_R5G5B5A1
+				UNCOMPRESSED_R4G4B4A4
+				UNCOMPRESSED_R8G8B8A8
+				UNCOMPRESSED_R32
+				UNCOMPRESSED_R32G32B32
+				UNCOMPRESSED_R32G32B32A32
+				UNCOMPRESSED_R16
+				UNCOMPRESSED_R16G16B16
+				UNCOMPRESSED_R16G16B16A16
+				COMPRESSED_DXT1_RGB
+				COMPRESSED_DXT1_RGBA
+				COMPRESSED_DXT3_RGBA
+				COMPRESSED_DXT5_RGBA
+				COMPRESSED_ETC1_RGB
+				COMPRESSED_ETC2_RGB
+				COMPRESSED_ETC2_EAC_RGBA
+				COMPRESSED_PVRT_RGB
+				COMPRESSED_PVRT_RGBA
+				COMPRESSED_ASTC_4x4_RGBA
+				COMPRESSED_ASTC_8x8_RGBA
 			}
-			TraceLogLevel* = enum (int32) {
-				ALL
-				TRACE
-				DEBUG
-				INFO
-				WARNING
-				ERROR
-				FATAL
-				NONE
+			GamepadAxis* = enum (int32) {
+				LEFT_X
+				LEFT_Y
+				RIGHT_X
+				RIGHT_Y
+				LEFT_TRIGGER
+				RIGHT_TRIGGER
 			}
-			NPatchInfo* = struct {
-				source: Rectangle
-				left: int32
-				top: int32
-				right: int32
-				bottom: int32
-				layout: NPatchLayout
-			}
-			Ray* = struct {
-				position: Vector3
-				direction: Vector3
-			}
+			Quaternion* = quaternion128
 			Camera2D* = struct {
 				offset: Vector2
 				target: Vector2
@@ -407,22 +397,24 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				mipmaps: int32
 				format: PixelFormat
 			}
+			Transform* = struct {
+				translation: Vector3
+				rotation: Quaternion
+				scale: Vector3
+			}
+			NPatchInfo* = struct {
+				source: Rectangle
+				left: int32
+				top: int32
+				right: int32
+				bottom: int32
+				layout: NPatchLayout
+			}
 			RayCollision* = struct {
 				hit: bool
 				distance: real32
 				point: Vector3
 				normal: Vector3
-			}
-			BoundingBox* = struct {
-				min: Vector3
-				max: Vector3
-			}
-			Camera3D* = struct {
-				position: Vector3
-				target: Vector3
-				up: Vector3
-				fovy: real32
-				projection: CameraProjection
 			}
 			Image* = struct {
 				data: ^void
@@ -431,13 +423,12 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				mipmaps: int32
 				format: PixelFormat
 			}
-			TextureCubemap* = Texture
-			Camera* = Camera3D
-			Texture2D* = Texture
-			RenderTexture* = struct {
-				id: uint32
-				texture: Texture
-				depth: Texture
+			Camera3D* = struct {
+				position: Vector3
+				target: Vector3
+				up: Vector3
+				fovy: real32
+				projection: CameraProjection
 			}
 			GlyphInfo* = struct {
 				value: uint32
@@ -445,5 +436,21 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				offsetY: int32
 				advanceX: int32
 				image: Image
+			}
+			Ray* = struct {
+				position: Vector3
+				direction: Vector3
+			}
+			BoundingBox* = struct {
+				min: Vector3
+				max: Vector3
+			}
+			Camera* = Camera3D
+			Texture2D* = Texture
+			TextureCubemap* = Texture
+			RenderTexture* = struct {
+				id: uint32
+				texture: Texture
+				depth: Texture
 			}
 			RenderTexture2D* = RenderTexture
