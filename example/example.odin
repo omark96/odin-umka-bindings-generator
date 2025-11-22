@@ -3,7 +3,6 @@ package example
 import "../umka"
 import "base:runtime"
 import "core:c"
-import "core:c"
 import "core:c/libc"
 import "core:fmt"
 import "core:log"
@@ -60,12 +59,12 @@ Some_Struct4 :: struct {
 	d: f64,
 }
 
-Some_Struct5 :: struct {
-	a: [4]u8,
-	b: [^]int,
-	c: []c.int,
-	d: [^]c.int,
-}
+// Some_Struct5 :: struct {
+// 	a: [4]u8,
+// 	b: [^]int,
+// 	d: []c.int,
+// 	e: [^]c.int,
+// }
 
 Some_Array :: [4]int
 Some_Array2 :: [5]u8

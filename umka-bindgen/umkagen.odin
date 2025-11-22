@@ -9,7 +9,7 @@ import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
 import "core:strconv"
-import rl "vendor:raylib"
+import "vendor:raylib"
 
 
 Type_Kind :: enum {
@@ -24,35 +24,37 @@ Type_Kind :: enum {
 	Alias,
 	Distinct,
 	MultiPointer,
+	Field,
 }
 
 Type :: struct {
 	kind:         Type_Kind,
 	base_type:    string,
-	fields:       [dynamic]Odin_Field,
-	enum_fields:  [dynamic]Odin_Enum_Field,
-	params:       [dynamic]Odin_Param_Type,
-	returns:      [dynamic]Odin_Param_Type,
+	names:        [dynamic]string,
+	fields:       [dynamic]Type,
+	params:       [dynamic]Type,
+	returns:      [dynamic]Type,
 	dependencies: map[string]struct {
 	},
 	length:       int,
+	value:        int,
 }
 
-Odin_Param_Type :: struct {
-	name: string,
-	type: string,
-}
+// Odin_Param_Type :: struct {
+// 	name: string,
+// 	type: string,
+// }
 
 
-Odin_Field :: struct {
-	names: [dynamic]string,
-	type:  string,
-}
+// Odin_Field :: struct {
+// 	names: [dynamic]string,
+// 	type:  string,
+// }
 
-Odin_Enum_Field :: struct {
-	name:  string,
-	value: int,
-}
+// Odin_Enum_Field :: struct {
+// 	name:  string,
+// 	value: int,
+// }
 
 
 // Umka_Proc :: struct {
@@ -104,6 +106,7 @@ main :: proc() {
 		}
 	}
 	fmt.println("Init")
+
 	pkg, ok := parser.parse_package_from_path("./example")
 	if !ok {
 		fmt.println("error: failed to read package")
@@ -120,6 +123,7 @@ main :: proc() {
 			//  ^~~~attribute     ^~~~name     ^~~~value
 			vd: ^ast.Value_Decl
 			ok: bool
+
 			if vd, ok = decl.derived_stmt.(^ast.Value_Decl); !ok do continue
 			if vd.is_mutable do continue
 			if len(vd.values) != 1 do continue
@@ -135,7 +139,9 @@ main :: proc() {
 				fmt.println("Found struct:", struct_ident.name)
 				codegen_type.kind = .Struct
 				for field in struct_type.fields.list {
-					codegen_field := Odin_Field{}
+					codegen_field := Type {
+						kind = .Field,
+					}
 					for name in field.names {
 						field_name := name.derived_expr.(^ast.Ident).name
 
@@ -172,7 +178,7 @@ main :: proc() {
 							codegen_type.dependencies[type_name] = {}
 						}
 					}
-					codegen_field.type = type_name
+					codegen_field.base_type = type_name
 					append(&codegen_type.fields, codegen_field)
 				}
 				odin_types[struct_ident.name] = codegen_type
@@ -223,27 +229,32 @@ main :: proc() {
 				}
 				val := 0
 				for field in enum_type.fields {
-					codegen_enum_field: Odin_Enum_Field
+					codegen_enum_field := Type {
+						kind = .Field,
+					}
 					#partial switch type in field.derived_expr {
 					case ^ast.Field_Value:
 						{
 							val, _ = strconv.parse_int(
 								type.value.derived_expr.(^ast.Basic_Lit).tok.text,
 							)
-							codegen_enum_field = {
-								name  = field.derived_expr.(^ast.Field_Value).field.derived_expr.(^ast.Ident).name,
-								value = val,
-							}
+							append(
+								&codegen_enum_field.names,
+								field.derived_expr.(^ast.Field_Value).field.derived_expr.(^ast.Ident).name,
+							)
+
+							codegen_enum_field.value = val
+
+
 						}
 					case ^ast.Ident:
 						{
-							codegen_enum_field = {
-								name  = type.derived_expr.(^ast.Ident).name,
-								value = val,
-							}
+							append(&codegen_enum_field.names, type.derived_expr.(^ast.Ident).name)
+							codegen_enum_field.value = val
+
 						}
 					}
-					append(&codegen_type.enum_fields, codegen_enum_field)
+					append(&codegen_type.fields, codegen_enum_field)
 					val += 1
 				}
 				odin_types[enum_ident.name] = codegen_type
@@ -307,10 +318,14 @@ main :: proc() {
 						for param_name in param.names {
 							if param_type, param_type_ok := param.type.derived_expr.(^ast.Ident);
 							   param_type_ok {
-								codegen_param := Odin_Param_Type {
-									name = param_name.derived_expr.(^ast.Ident).name,
-									type = param_type.name,
+								codegen_param := Type {
+									kind      = .Param,
+									base_type = param_type.name,
 								}
+								append(
+									&codegen_param.names,
+									param_name.derived_expr.(^ast.Ident).name,
+								)
 								append(&codegen_type.params, codegen_param)
 
 								// fmt.printfln(
@@ -332,10 +347,14 @@ main :: proc() {
 						if result_type, result_type_ok := result.type.derived_expr.(^ast.Ident);
 						   result_type_ok {
 							for result_name in result.names {
-								odin_param_type := Odin_Param_Type {
-									name = result_name.derived_expr.(^ast.Ident).name,
+								odin_param_type := Type {
+									kind      = .Param,
+									base_type = result_type.name,
 								}
-								odin_param_type.type = result_type.name
+								append(
+									&odin_param_type.names,
+									result_name.derived_expr.(^ast.Ident).name,
+								)
 								append(&codegen_type.returns, odin_param_type)
 								// fmt.printfln(
 								// 	"result %d: %v",
@@ -346,8 +365,8 @@ main :: proc() {
 								// fmt.printfln("result type: %v", result_type.name)
 							}
 							if len(result.names) == 0 {
-								odin_result_type := Odin_Param_Type {
-									type = result_type.name,
+								odin_result_type := Type {
+									base_type = result_type.name,
 								}
 								append(&codegen_type.returns, odin_result_type)
 
@@ -392,11 +411,12 @@ import "core:fmt"
 	// if proc_type, proc_type_ok := vd.values[0].derived_expr.(^ast.Proc_Lit); proc_type_ok {
 	for proc_name, type in odin_types {
 		if type.kind == .Proc {
-			fmt.println(type)
-			for param in type.params {
-				param_type := param.type
-				fmt.println()
-			}
+			// fmt.println(type)
+			// for param in type.params {
+
+			// 	param_type := param.base_type
+			// 	fmt.println()
+			// }
 			fmt.fprintfln(
 				f,
 				`umka_%s :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {{
@@ -405,27 +425,27 @@ import "core:fmt"
 				proc_name,
 			)
 			for param, i in type.params {
-				if param.type == "string" {
+				if param.base_type == "string" {
 					fmt.fprintfln(
 						f,
 						`	c_%s := cast(^cstring)umka.GetParam(params, %d)`,
-						param.name,
+						param.names[0],
 						i,
 					)
-					fmt.fprintfln(f, `	%s := string(c_%s^)`, param.name, param.name)
+					fmt.fprintfln(f, `	%s := string(c_%s^)`, param.names[0], param.names[0])
 				} else {
 					fmt.fprintfln(
 						f,
 						`	%s := cast(^%s)umka.GetParam(params, %d)`,
-						param.name,
-						param.type,
+						param.names[0],
+						param.base_type,
 						i,
 					)
 				}
 			}
 			if len(type.returns) > 0 {
 				stack_slot := StackSlot.ptrVal
-				type_name := type.returns[0].type
+				type_name := type.returns[0].base_type
 				odin_type := odin_types[type_name]
 				#partial switch odin_type.kind {
 				case .Distinct:
@@ -457,16 +477,16 @@ import "core:fmt"
 				fmt.fprintf(f, `	res := %s(`, proc_name)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
-						if param.type == "string" {
-							fmt.fprintf(f, `%s, `, param.name)
+						if param.base_type == "string" {
+							fmt.fprintf(f, `%s, `, param.names[0])
 						} else {
-							fmt.fprintf(f, `%s^, `, param.name)
+							fmt.fprintf(f, `%s^, `, param.names[0])
 						}
 					} else {
-						if param.type == "string" {
-							fmt.fprintfln(f, `%s) `, param.name)
+						if param.base_type == "string" {
+							fmt.fprintfln(f, `%s) `, param.names[0])
 						} else {
-							fmt.fprintfln(f, `%s^) `, param.name)
+							fmt.fprintfln(f, `%s^) `, param.names[0])
 						}
 					}
 				}
@@ -476,16 +496,16 @@ import "core:fmt"
 				fmt.fprintf(f, `	%s(`, proc_name)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
-						if param.type == "string" {
-							fmt.fprintf(f, `%s, `, param.name)
+						if param.base_type == "string" {
+							fmt.fprintf(f, `%s, `, param.names[0])
 						} else {
-							fmt.fprintf(f, `%s^, `, param.name)
+							fmt.fprintf(f, `%s^, `, param.names[0])
 						}
 					} else {
-						if param.type == "string" {
-							fmt.fprintfln(f, `%s) `, param.name)
+						if param.base_type == "string" {
+							fmt.fprintfln(f, `%s) `, param.names[0])
 						} else {
-							fmt.fprintfln(f, `%s^) `, param.name)
+							fmt.fprintfln(f, `%s^) `, param.names[0])
 						}
 					}
 				}
@@ -535,7 +555,7 @@ import "core:fmt"
 					fmt.fprintf(f, `				`)
 					for name, i in field.names {
 						type_name :=
-							field.type in odin_to_umka ? odin_to_umka[field.type].name : field.type
+							field.base_type in odin_to_umka ? odin_to_umka[field.base_type].name : field.base_type
 						if i < len(field.names) - 1 {
 							fmt.fprintf(f, `%s,`, name)
 						} else {
@@ -575,11 +595,11 @@ import "core:fmt"
 					type.base_type != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type].name) : ""
 				fmt.fprintfln(f, `			%s* = enum %s{{`, enum_name, backing_string)
 				prev_val := -1
-				for field in type.enum_fields {
+				for field in type.fields {
 					if field.value - prev_val > 1 {
-						fmt.fprintfln(f, `				%s = %d`, field.name, field.value)
+						fmt.fprintfln(f, `				%s = %d`, field.names[0], field.value)
 					} else {
-						fmt.fprintfln(f, `				%s`, field.name)
+						fmt.fprintfln(f, `				%s`, field.names[0])
 					}
 					prev_val = field.value
 				}
@@ -625,6 +645,7 @@ import "core:fmt"
 		}
 	}
 	fmt.fprintln(f, `		)`)
+
 	for proc_name, type in odin_types {
 		if type.kind == .Proc {
 			fmt.fprintf(f, `		fn %s*(`, proc_name)
@@ -633,16 +654,16 @@ import "core:fmt"
 			}
 			for param, i in type.params {
 				param_type :=
-					param.type in odin_to_umka ? odin_to_umka[param.type].name : param.type
+					param.base_type in odin_to_umka ? odin_to_umka[param.base_type].name : param.base_type
 				if i < len(type.params) - 1 {
-					fmt.fprintf(f, `%s: %s, `, param.name, param_type)
+					fmt.fprintf(f, `%s: %s, `, param.names[0], param_type)
 				} else {
-					fmt.fprintf(f, `%s: %s)`, param.name, param_type)
+					fmt.fprintf(f, `%s: %s)`, param.names[0], param_type)
 				}
 			}
 			if len(type.returns) > 0 {
 				return_type :=
-					type.returns[0].type in odin_to_umka ? odin_to_umka[type.returns[0].type].name : type.returns[0].type
+					type.returns[0].base_type in odin_to_umka ? odin_to_umka[type.returns[0].base_type].name : type.returns[0].base_type
 				fmt.fprintf(f, `: %s`, return_type)
 			}
 			fmt.fprintfln(f, "")
