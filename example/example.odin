@@ -6,6 +6,7 @@ import "core:c"
 import "core:c/libc"
 import "core:fmt"
 import "core:log"
+import "core:time"
 
 // SOME_CONSTANT :: 'a' // TODO: Constants
 warn_callback: umka.WarningCallback : proc "c" (err: ^umka.Error) {
@@ -59,12 +60,12 @@ Some_Struct4 :: struct {
 	d: f64,
 }
 
-Some_Struct5 :: struct {
-	a: [4]u8,
-	b: [^]int,
-	d: []c.int,
-	e: [^]c.int,
-}
+// Some_Struct5 :: struct {
+// 	a: [4]u8,
+// 	b: [^]int,
+// 	d: []c.int,
+// 	e: [^]c.int,
+// }
 
 Some_Array :: [4]int
 Some_Array2 :: [5]u8
@@ -73,6 +74,7 @@ Some_Slice :: []u8
 My_Int :: int
 Some_Struct_Alias :: Some_Struct
 My_Distinct_Int :: distinct int
+My_Distinct_U8_Array :: distinct [4]u8
 
 Some_Dynamic_Array :: [dynamic]u8
 
@@ -168,7 +170,10 @@ main :: proc() {
 	rv := umka.Compile(g_umka_ctx)
 
 	umka_assert(rv)
+	for {
 
-	umka.Run(g_umka_ctx)
+		umka.Run(g_umka_ctx)
+		time.sleep(time.Second)
+	}
 
 }
