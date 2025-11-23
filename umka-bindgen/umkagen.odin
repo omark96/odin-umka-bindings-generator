@@ -132,9 +132,7 @@ main :: proc() {
 
 			type := get_type(vd.values[0].derived_expr)
 			type_name := vd.names[0].derived_expr.(^ast.Ident).name
-			if type.kind == .Struct {
-				fmt.printfln("%#v", type_name)
-			}
+
 			if type.kind == .Proc {
 				if len(vd.attributes) <= 0 do continue
 				attr_ident := vd.attributes[0].elems[0].derived_expr.(^ast.Ident)
@@ -153,12 +151,275 @@ main :: proc() {
 			// append(&cmds, cmd)
 		}
 	}
+
+	// generate_bindings()
+
 	// for name, type in odin_types {
-	// 	if type.kind != .Builtin {
-	// 		fmt.printfln("%v: %#v", name, type)
+	// 	if type.kind != .Builtin && type.kind != .Proc {
+	// 		fmt.printfln("%v:\n%#v", name, type)
 	// 	}
 	// }
 
+}
+
+get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
+	codegen_type := Type{}
+	ok: bool
+
+	#partial switch type in derived_expr {
+	case ^ast.Basic_Lit:
+		// {
+		// 	fmt.println(type)
+		// }
+		break
+	case ^ast.Multi_Pointer_Type:
+		type_name: string
+		#partial switch mp_type in type.elem.derived_expr {
+		case ^ast.Selector_Expr:
+			type_name = fmt.aprintf(
+				"%#v.%#v",
+				mp_type.expr.derived_expr.(^ast.Ident).name,
+				mp_type.field.name,
+			)
+		case ^ast.Ident:
+			type_name = mp_type.name
+		}
+		codegen_type.kind = .MultiPointer
+		codegen_type.base_type = type_name
+		if type_name in codegen_type.dependencies == false {
+			if type_name in odin_types {
+				if odin_types[type_name].kind != .Builtin {
+					codegen_type.dependencies[type_name] = {}
+				}
+			} else {
+				codegen_type.dependencies[type_name] = {}
+			}
+		}
+	case ^ast.Selector_Expr:
+		codegen_type.base_type = fmt.aprintf(
+			"%#v.%#v",
+			type.expr.derived_expr.(^ast.Ident).name,
+			type.field.name,
+		)
+	case ^ast.Struct_Type:
+		codegen_type.kind = .Struct
+		for field in type.fields.list {
+			codegen_field := get_type(field.type.derived_expr)
+			for name in field.names {
+				field_name := name.derived_expr.(^ast.Ident).name
+				append(&codegen_field.names, field_name)
+			}
+			// fmt.printfln("%#v", codegen_field)
+			type_name := codegen_field.base_type
+			if type_name in codegen_type.dependencies == false {
+				if type_name in odin_types {
+					if odin_types[type_name].kind != .Builtin {
+						codegen_type.dependencies[type_name] = {}
+					}
+				} else {
+					codegen_type.dependencies[type_name] = {}
+				}
+			}
+			append(&codegen_type.fields, codegen_field)
+		}
+	case ^ast.Array_Type:
+		// type_name := type.elem.derived_expr.(^ast.Ident).name
+		type_name: string
+		#partial switch array_type in type.elem.derived_expr {
+		case ^ast.Selector_Expr:
+			type_name = fmt.aprintf(
+				"%#v.%#v",
+				array_type.expr.derived_expr.(^ast.Ident).name,
+				array_type.field.name,
+			)
+		case ^ast.Ident:
+			type_name = array_type.name
+		}
+		if type_name in codegen_type.dependencies == false {
+			if type_name in odin_types {
+				if odin_types[type_name].kind != .Builtin {
+					codegen_type.dependencies[type_name] = {}
+				}
+			} else {
+				codegen_type.dependencies[type_name] = {}
+			}
+		}
+		if (type.len != nil) {
+			length_string := type.len.derived_expr.(^ast.Basic_Lit).tok.text
+			length, ok := strconv.parse_int(length_string)
+			codegen_type.kind = .Array
+			codegen_type.base_type = type_name
+			codegen_type.length = length
+		} else {
+			codegen_type.kind = .Slice
+			codegen_type.base_type = type_name
+		}
+	case ^ast.Enum_Type:
+		codegen_type.kind = .Enum
+		if type.base_type != nil {
+			#partial switch base_type in type.base_type.derived_expr {
+			case ^ast.Ident:
+				codegen_type.base_type = base_type.name
+			case ^ast.Selector_Expr:
+				codegen_type.base_type = fmt.aprintf(
+					"%#v.%#v",
+					base_type.expr.derived_expr.(^ast.Ident).name,
+					base_type.field.name,
+				)
+			}
+		} else {
+			codegen_type.base_type = "int"
+		}
+		val := 0
+		for field in type.fields {
+			codegen_enum_field := Type {
+				kind = .Field,
+			}
+			#partial switch type in field.derived_expr {
+			case ^ast.Field_Value:
+				{
+					val, _ = strconv.parse_int(type.value.derived_expr.(^ast.Basic_Lit).tok.text)
+					append(
+						&codegen_enum_field.names,
+						field.derived_expr.(^ast.Field_Value).field.derived_expr.(^ast.Ident).name,
+					)
+
+					codegen_enum_field.value = val
+				}
+			case ^ast.Ident:
+				{
+					append(&codegen_enum_field.names, type.derived_expr.(^ast.Ident).name)
+					codegen_enum_field.value = val
+
+				}
+			}
+			append(&codegen_type.fields, codegen_enum_field)
+			val += 1
+		}
+	case ^ast.Ident:
+		base_type := type.name
+		codegen_type.kind = .Alias
+		codegen_type.base_type = base_type
+		if base_type in codegen_type.dependencies == false {
+			if base_type in odin_types {
+				if odin_types[base_type].kind != .Builtin {
+					codegen_type.dependencies[base_type] = {}
+				}
+			} else {
+				codegen_type.dependencies[base_type] = {}
+			}
+		}
+	case ^ast.Distinct_Type:
+		codegen_type.kind = .Distinct
+
+		distinct_type := get_type(type.type.derived_expr)
+		#partial switch distinct_type.kind {
+		case .Array:
+			codegen_type.base_type = fmt.aprintf(
+				"[%d]%v",
+				distinct_type.length,
+				distinct_type.base_type,
+			)
+		}
+		fmt.printfln("%#v", codegen_type)
+
+	// #partial switch expr in type.derived_expr {
+	// case ^ast.Ident:
+	// 	fmt.println(expr.name)
+	// case ^ast.Array_Type:
+	// 	fmt.println(expr.elem.derived_expr.(^ast.Ident).name)
+	// }
+
+	case ^ast.Proc_Lit:
+		codegen_type.kind = .Proc
+
+		param_index := 1
+		params := type.type.params.list
+		if params != nil {
+			for param in params {
+				for param_name in param.names {
+					if param_type, param_type_ok := param.type.derived_expr.(^ast.Ident);
+					   param_type_ok {
+						codegen_param := Type {
+							kind      = .Param,
+							base_type = param_type.name,
+						}
+						append(&codegen_param.names, param_name.derived_expr.(^ast.Ident).name)
+						append(&codegen_type.params, codegen_param)
+
+						// fmt.printfln(
+						// 	"arg %d:\n\tname: %v,\n\ttype: %v",
+						// 	param_index,
+						// 	param_name.derived_expr.(^ast.Ident).name,
+						// 	param_type.name,
+						// )
+					}
+					param_index += 1
+				}
+			}
+		}
+		// fmt.println(proc_type.type.results)
+		results := type.type.results
+		if results != nil {
+			for result in type.type.results.list {
+				result_index := 1
+				if result_type, result_type_ok := result.type.derived_expr.(^ast.Ident);
+				   result_type_ok {
+					for result_name in result.names {
+						odin_param_type := Type {
+							kind      = .Param,
+							base_type = result_type.name,
+						}
+						append(&odin_param_type.names, result_name.derived_expr.(^ast.Ident).name)
+						append(&codegen_type.returns, odin_param_type)
+						// fmt.printfln(
+						// 	"result %d: %v",
+						// 	result_index,
+						// 	result_name.derived_expr.(^ast.Ident).name,
+						// )
+						result_index += 1
+						// fmt.printfln("result type: %v", result_type.name)
+					}
+					if len(result.names) == 0 {
+						odin_result_type := Type {
+							base_type = result_type.name,
+						}
+						append(&codegen_type.returns, odin_result_type)
+
+						// fmt.printfln("result type: %v", result_type.name)
+					}
+				}
+			}
+		}
+
+	// codegen_type.base_type = base_type.name
+	// if base_type in codegen_type.dependencies == false {
+	// 	if base_type in odin_types {
+	// 		if odin_types[base_type].kind != .Builtin {
+	// 			codegen_type.dependencies[base_type] = {}
+	// 		}
+	// 	} else {
+	// 		codegen_type.dependencies[base_type] = {}
+	// 	}
+	// }
+	// odin_types[ident] = codegen_type
+	}
+
+	return codegen_type
+}
+
+// proc_list: [dynamic]runtime.Type_Info
+// append(&proc_list, proc_type^)
+// for _proc in proc_list {
+// 	variant := _proc.variant
+// 	if proc_type_info, proc_type_info_ok := variant.(runtime.Type_Info_Procedure);
+// 		proc_type_info_ok {
+// 		fmt.println(proc_type_info)
+// 		fmt.println(example.add)
+// 	}
+// }
+
+generate_bindings :: proc() {
 	f, _ := os.open("./example/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
 	defer os.close(f)
 	fmt.fprintln(
@@ -437,256 +698,3 @@ import "core:fmt"
 	fmt.fprintln(f, "	)")
 	fmt.fprintln(f, `}`)
 }
-
-get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
-	codegen_type := Type{}
-	ok: bool
-
-	#partial switch type in derived_expr {
-	case ^ast.Basic_Lit:
-		// {
-		// 	fmt.println(type)
-		// }
-		break
-	case ^ast.Multi_Pointer_Type:
-		// fmt.println(type.elem)
-		codegen_type.kind = .MultiPointer
-	case ^ast.Selector_Expr:
-		codegen_type.base_type = fmt.aprintf(
-			"%#v.%#v",
-			type.expr.derived_expr.(^ast.Ident).name,
-			type.field.name,
-		)
-	case ^ast.Struct_Type:
-		codegen_type.kind = .Struct
-		for field in type.fields.list {
-			codegen_field := Type {
-				kind = .Field,
-			}
-			for name in field.names {
-				field_name := name.derived_expr.(^ast.Ident).name
-				append(&codegen_field.names, field_name)
-			}
-			type_name: string // TODO! Extract!!!!
-			#partial switch field_type in field.type.derived_expr {
-			case ^ast.Selector_Expr:
-				type_name = fmt.aprintf(
-					"%#v.%#v",
-					field_type.expr.derived_expr.(^ast.Ident).name,
-					field_type.field.name,
-				)
-			case ^ast.Ident:
-				type_name = field_type.name
-			case ^ast.Multi_Pointer_Type:
-				#partial switch mp_type in field_type.elem.derived_expr {
-				case ^ast.Selector_Expr:
-					type_name = fmt.aprintf(
-						"%#v.%#v",
-						mp_type.expr.derived_expr.(^ast.Ident).name,
-						mp_type.field.name,
-					)
-				case ^ast.Ident:
-					type_name = mp_type.name
-				}
-			}
-			fmt.printfln("Struct field type:\n%#v", get_type(field.type.derived_expr))
-			if type_name in codegen_type.dependencies == false {
-				if type_name in odin_types {
-					if odin_types[type_name].kind != .Builtin {
-						codegen_type.dependencies[type_name] = {}
-					}
-				} else {
-					codegen_type.dependencies[type_name] = {}
-				}
-			}
-			codegen_field.base_type = type_name
-			append(&codegen_type.fields, codegen_field)
-		}
-	case ^ast.Array_Type:
-		// type_name := type.elem.derived_expr.(^ast.Ident).name
-		type_name: string
-		#partial switch array_type in type.elem.derived_expr {
-		case ^ast.Selector_Expr:
-			type_name = fmt.aprintf(
-				"%#v.%#v",
-				array_type.expr.derived_expr.(^ast.Ident).name,
-				array_type.field.name,
-			)
-		case ^ast.Ident:
-			type_name = array_type.name
-		}
-		if type_name in codegen_type.dependencies == false {
-			if type_name in odin_types {
-				if odin_types[type_name].kind != .Builtin {
-					codegen_type.dependencies[type_name] = {}
-				}
-			} else {
-				codegen_type.dependencies[type_name] = {}
-			}
-		}
-		if (type.len != nil) {
-			length_string := type.len.derived_expr.(^ast.Basic_Lit).tok.text
-			length, ok := strconv.parse_int(length_string)
-			codegen_type.kind = .Array
-			codegen_type.base_type = type_name
-			codegen_type.length = length
-		} else {
-			codegen_type.kind = .Slice
-			codegen_type.base_type = type_name
-		}
-	case ^ast.Enum_Type:
-		codegen_type.kind = .Enum
-		if type.base_type != nil {
-			#partial switch base_type in type.base_type.derived_expr {
-			case ^ast.Ident:
-				codegen_type.base_type = base_type.name
-			case ^ast.Selector_Expr:
-				codegen_type.base_type = fmt.aprintf(
-					"%#v.%#v",
-					base_type.expr.derived_expr.(^ast.Ident).name,
-					base_type.field.name,
-				)
-			}
-		} else {
-			codegen_type.base_type = "int"
-		}
-		val := 0
-		for field in type.fields {
-			codegen_enum_field := Type {
-				kind = .Field,
-			}
-			#partial switch type in field.derived_expr {
-			case ^ast.Field_Value:
-				{
-					val, _ = strconv.parse_int(type.value.derived_expr.(^ast.Basic_Lit).tok.text)
-					append(
-						&codegen_enum_field.names,
-						field.derived_expr.(^ast.Field_Value).field.derived_expr.(^ast.Ident).name,
-					)
-
-					codegen_enum_field.value = val
-				}
-			case ^ast.Ident:
-				{
-					append(&codegen_enum_field.names, type.derived_expr.(^ast.Ident).name)
-					codegen_enum_field.value = val
-
-				}
-			}
-			append(&codegen_type.fields, codegen_enum_field)
-			val += 1
-		}
-	case ^ast.Ident:
-		base_type := type.name
-		codegen_type.kind = .Alias
-		codegen_type.base_type = base_type
-		if base_type in codegen_type.dependencies == false {
-			if base_type in odin_types {
-				if odin_types[base_type].kind != .Builtin {
-					codegen_type.dependencies[base_type] = {}
-				}
-			} else {
-				codegen_type.dependencies[base_type] = {}
-			}
-		}
-	case ^ast.Distinct_Type:
-		codegen_type.kind = .Distinct
-
-		base_type := get_type(type.type.derived_expr)
-	// fmt.println(base_type)
-
-	// #partial switch expr in type.derived_expr {
-	// case ^ast.Ident:
-	// 	fmt.println(expr.name)
-	// case ^ast.Array_Type:
-	// 	fmt.println(expr.elem.derived_expr.(^ast.Ident).name)
-	// }
-
-	case ^ast.Proc_Lit:
-		codegen_type.kind = .Proc
-
-		param_index := 1
-		params := type.type.params.list
-		if params != nil {
-			for param in params {
-				for param_name in param.names {
-					if param_type, param_type_ok := param.type.derived_expr.(^ast.Ident);
-					   param_type_ok {
-						codegen_param := Type {
-							kind      = .Param,
-							base_type = param_type.name,
-						}
-						append(&codegen_param.names, param_name.derived_expr.(^ast.Ident).name)
-						append(&codegen_type.params, codegen_param)
-
-						// fmt.printfln(
-						// 	"arg %d:\n\tname: %v,\n\ttype: %v",
-						// 	param_index,
-						// 	param_name.derived_expr.(^ast.Ident).name,
-						// 	param_type.name,
-						// )
-					}
-					param_index += 1
-				}
-			}
-		}
-		// fmt.println(proc_type.type.results)
-		results := type.type.results
-		if results != nil {
-			for result in type.type.results.list {
-				result_index := 1
-				if result_type, result_type_ok := result.type.derived_expr.(^ast.Ident);
-				   result_type_ok {
-					for result_name in result.names {
-						odin_param_type := Type {
-							kind      = .Param,
-							base_type = result_type.name,
-						}
-						append(&odin_param_type.names, result_name.derived_expr.(^ast.Ident).name)
-						append(&codegen_type.returns, odin_param_type)
-						// fmt.printfln(
-						// 	"result %d: %v",
-						// 	result_index,
-						// 	result_name.derived_expr.(^ast.Ident).name,
-						// )
-						result_index += 1
-						// fmt.printfln("result type: %v", result_type.name)
-					}
-					if len(result.names) == 0 {
-						odin_result_type := Type {
-							base_type = result_type.name,
-						}
-						append(&codegen_type.returns, odin_result_type)
-
-						// fmt.printfln("result type: %v", result_type.name)
-					}
-				}
-			}
-		}
-
-	// codegen_type.base_type = base_type.name
-	// if base_type in codegen_type.dependencies == false {
-	// 	if base_type in odin_types {
-	// 		if odin_types[base_type].kind != .Builtin {
-	// 			codegen_type.dependencies[base_type] = {}
-	// 		}
-	// 	} else {
-	// 		codegen_type.dependencies[base_type] = {}
-	// 	}
-	// }
-	// odin_types[ident] = codegen_type
-	}
-
-	return codegen_type
-}
-
-// proc_list: [dynamic]runtime.Type_Info
-// append(&proc_list, proc_type^)
-// for _proc in proc_list {
-// 	variant := _proc.variant
-// 	if proc_type_info, proc_type_info_ok := variant.(runtime.Type_Info_Procedure);
-// 		proc_type_info_ok {
-// 		fmt.println(proc_type_info)
-// 		fmt.println(example.add)
-// 	}
-// }

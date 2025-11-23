@@ -70,6 +70,9 @@ Some_Struct5 :: struct {
 Some_Array :: [4]int
 Some_Array2 :: [5]u8
 Some_Slice :: []u8
+Some_Multi_Pointer :: [^]int
+Some_Multi_Pointer2 :: [^]c.int
+Some_Multi_Pointer3 :: [^]Some_Array
 
 My_Int :: int
 Some_Struct_Alias :: Some_Struct
