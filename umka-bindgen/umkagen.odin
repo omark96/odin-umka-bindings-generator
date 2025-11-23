@@ -132,7 +132,9 @@ main :: proc() {
 
 			type := get_type(vd.values[0].derived_expr)
 			type_name := vd.names[0].derived_expr.(^ast.Ident).name
-
+			if type.kind == .Struct {
+				fmt.printfln("%#v", type_name)
+			}
 			if type.kind == .Proc {
 				if len(vd.attributes) <= 0 do continue
 				attr_ident := vd.attributes[0].elems[0].derived_expr.(^ast.Ident)
@@ -442,11 +444,13 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 
 	#partial switch type in derived_expr {
 	case ^ast.Basic_Lit:
-		{
-			fmt.println(type)
-		}
+		// {
+		// 	fmt.println(type)
+		// }
+		break
 	case ^ast.Multi_Pointer_Type:
-		fmt.println(type.elem)
+		// fmt.println(type.elem)
+		codegen_type.kind = .MultiPointer
 	case ^ast.Selector_Expr:
 		codegen_type.base_type = fmt.aprintf(
 			"%#v.%#v",
@@ -461,7 +465,6 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 			}
 			for name in field.names {
 				field_name := name.derived_expr.(^ast.Ident).name
-
 				append(&codegen_field.names, field_name)
 			}
 			type_name: string // TODO! Extract!!!!
@@ -473,7 +476,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 					field_type.field.name,
 				)
 			case ^ast.Ident:
-				codegen_type.kind = .Ident
+				type_name = field_type.name
 			case ^ast.Multi_Pointer_Type:
 				#partial switch mp_type in field_type.elem.derived_expr {
 				case ^ast.Selector_Expr:
@@ -486,6 +489,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 					type_name = mp_type.name
 				}
 			}
+			fmt.printfln("Struct field type:\n%#v", get_type(field.type.derived_expr))
 			if type_name in codegen_type.dependencies == false {
 				if type_name in odin_types {
 					if odin_types[type_name].kind != .Builtin {
@@ -499,7 +503,18 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 			append(&codegen_type.fields, codegen_field)
 		}
 	case ^ast.Array_Type:
-		type_name := type.elem.derived_expr.(^ast.Ident).name
+		// type_name := type.elem.derived_expr.(^ast.Ident).name
+		type_name: string
+		#partial switch array_type in type.elem.derived_expr {
+		case ^ast.Selector_Expr:
+			type_name = fmt.aprintf(
+				"%#v.%#v",
+				array_type.expr.derived_expr.(^ast.Ident).name,
+				array_type.field.name,
+			)
+		case ^ast.Ident:
+			type_name = array_type.name
+		}
 		if type_name in codegen_type.dependencies == false {
 			if type_name in odin_types {
 				if odin_types[type_name].kind != .Builtin {
@@ -578,7 +593,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 		codegen_type.kind = .Distinct
 
 		base_type := get_type(type.type.derived_expr)
-		fmt.println(base_type)
+	// fmt.println(base_type)
 
 	// #partial switch expr in type.derived_expr {
 	// case ^ast.Ident:
