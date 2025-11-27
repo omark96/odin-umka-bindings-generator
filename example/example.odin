@@ -39,47 +39,46 @@ umka_assert :: proc(rv: bool) {
 }
 
 
-Some_Struct :: struct {
-	a: int,
-	b: bool,
-}
+// Some_Struct :: struct {
+// 	a: int,
+// 	b: bool,
+// }
 
-Some_Struct2 :: struct {
-	a, b: int,
-	d:    c.int,
-	e:    bool,
-}
+// Some_Struct2 :: struct {
+// 	a, b: int,
+// 	d:    c.int,
+// 	e:    bool,
+// }
 
-Some_Struct3 :: struct {
-}
+// Some_Struct3 :: struct {
+// }
 
-Some_Struct4 :: struct {
-	a: f32,
-	b: rune,
-	c: Some_Struct3, //TODO: Resolve order for type dependency
-	d: f64,
-}
+// Some_Struct4 :: struct {
+// 	a: f32,
+// 	b: rune,
+// 	c: Some_Struct3,
+// 	d: f64,
+// }
 
-Some_Struct5 :: struct {
-	a: [4]u8,
-	b: [^]int,
-	d: []c.int,
-	e: [^]c.int,
-}
+// Some_Struct5 :: struct {
+// 	e: [^]c.int,
+// }
 
-Some_Array :: [4]int
-Some_Array2 :: [5]u8
-Some_Slice :: []u8
-Some_Multi_Pointer :: [^]int
-Some_Multi_Pointer2 :: [^]c.int
-Some_Multi_Pointer3 :: [^]Some_Array
+// Some_Array :: [4]int
+// Some_Array2 :: [5]u8
+// Some_Slice :: []u8
+// Some_Multi_Pointer :: [^]int
+// Some_Multi_Pointer2 :: [^]c.int
+// Some_Multi_Pointer3 :: [^]Some_Array
 
-My_Int :: int
-Some_Struct_Alias :: Some_Struct
-My_Distinct_Int :: distinct int
-My_Distinct_U8_Array :: distinct [4]u8
+// My_Int :: int
+// Some_Struct_Alias :: Some_Struct
+// My_Distinct_Int :: distinct int
+//TODO: Distinct arrays
+// My_Distinct_U8_Array :: distinct [4]u8
 
-Some_Dynamic_Array :: [dynamic]u8
+// TODO: Implement dynamic arrays
+// Some_Dynamic_Array :: [dynamic]u8
 
 Some_Enum :: enum {
 	A = 1,
@@ -94,6 +93,12 @@ Some_U8_Enum :: enum u8 {
 	C,
 	D,
 }
+
+// TODO:
+// Some_Bit_Set :: bit_set[0 ..< 10]
+// Some_Bit_Set2 :: bit_set[0 ..= 5]
+Some_Enum_Bit_Set :: bit_set[Some_Enum]
+Some_U8_Enum_Bit_Set :: bit_set[Some_U8_Enum;u8]
 
 // Adds two integers
 @(umka_fn)

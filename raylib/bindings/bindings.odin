@@ -12,23 +12,38 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 		"bindings.um",
 		`
 		type (
+			Rectangle* = struct {
+				x: real32
+				y: real32
+				width: real32
+				height: real32
+			}
+			VrDeviceInfo* = struct {
+				hResolution: int32
+				vResolution: int32
+				hScreenSize: real32
+				vScreenSize: real32
+				eyeToScreenDistance: real32
+				lensSeparationDistance: real32
+				interpupillaryDistance: real32
+				lensDistortionValues: real32
+				chromaAbCorrection: real32
+			}
+			AutomationEvent* = struct {
+				frame: uint32
+				type: uint32
+				params: int32
+			}
+			Shader* = struct {
+				id: uint32
+				locs: int32
+			}
 			AudioStream* = struct {
 				buffer: ^void
 				processor: ^void
 				sampleRate: uint32
 				sampleSize: uint32
 				channels: uint32
-			}
-			Sound* = struct {
-				stream: AudioStream
-				frameCount: uint32
-			}
-			Music* = struct {
-				stream: AudioStream
-				frameCount: uint32
-				looping: bool
-				ctxType: int32
-				ctxData: ^void
 			}
 			Wave* = struct {
 				frameCount: uint32
@@ -37,26 +52,34 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				channels: uint32
 				data: ^void
 			}
-			Rectangle* = struct {
-				x: real32
-				y: real32
-				width: real32
-				height: real32
+			AutomationEventList* = struct {
+				capacity: uint32
+				count: uint32
+				events: AutomationEvent
+			}
+			FilePathList* = struct {
+				capacity: uint32
+				count: uint32
+				paths: str
+			}
+			BoneInfo* = struct {
+				name: byte
+				parent: int32
+			}
+			VrStereoConfig* = struct {
+				projection: Matrix
+				viewOffset: Matrix
+				leftLensCenter: real32
+				rightLensCenter: real32
+				leftScreenCenter: real32
+				rightScreenCenter: real32
+				scale: real32
+				scaleIn: real32
 			}
 			Vector2* = [2]real32
+			Vector4* = [4]real32
 			quaternion128* = [4]real32
 			Vector3* = [3]real32
-			Vector4* = [4]real32
-			TraceLogLevel* = enum (int32) {
-				ALL
-				TRACE
-				DEBUG
-				INFO
-				WARNING
-				ERROR
-				FATAL
-				NONE
-			}
 			MouseButton* = enum (int32) {
 				LEFT
 				RIGHT
@@ -66,38 +89,46 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				FORWARD
 				BACK
 			}
-			TextureFilter* = enum (int32) {
-				POINT
-				BILINEAR
-				TRILINEAR
-				ANISOTROPIC_4X
-				ANISOTROPIC_8X
-				ANISOTROPIC_16X
+			GamepadAxis* = enum (int32) {
+				LEFT_X
+				LEFT_Y
+				RIGHT_X
+				RIGHT_Y
+				LEFT_TRIGGER
+				RIGHT_TRIGGER
 			}
-			TextureWrap* = enum (int32) {
-				REPEAT
-				CLAMP
-				MIRROR_REPEAT
-				MIRROR_CLAMP
+			ConfigFlag* = enum (int32) {
+				VSYNC_HINT = 6
+				FULLSCREEN_MODE
+				WINDOW_RESIZABLE
+				WINDOW_UNDECORATED
+				WINDOW_HIDDEN = 7
+				WINDOW_MINIMIZED = 9
+				WINDOW_MAXIMIZED
+				WINDOW_UNFOCUSED
+				WINDOW_TOPMOST
+				WINDOW_ALWAYS_RUN
+				WINDOW_TRANSPARENT
+				WINDOW_HIGHDPI = 13
+				WINDOW_MOUSE_PASSTHROUGH
+				BORDERLESS_WINDOWED_MODE
+				MSAA_4X_HINT
+				INTERLACED_HINT = 16
 			}
-			CubemapLayout* = enum (int32) {
-				AUTO_DETECT
-				LINE_VERTICAL
-				LINE_HORIZONTAL
-				CROSS_THREE_BY_FOUR
-				CROSS_FOUR_BY_THREE
+			CameraProjection* = enum (int32) {
+				PERSPECTIVE
+				ORTHOGRAPHIC
 			}
-			Gesture* = enum (uint32) {
-				TAP
-				DOUBLETAP
-				HOLD
-				DRAG
-				SWIPE_RIGHT
-				SWIPE_LEFT
-				SWIPE_UP
-				SWIPE_DOWN
-				PINCH_IN
-				PINCH_OUT
+			ShaderUniformDataType* = enum (int32) {
+				FLOAT
+				VEC2
+				VEC3
+				VEC4
+				INT
+				IVEC2
+				IVEC3
+				IVEC4
+				SAMPLER2D
 			}
 			CameraMode* = enum (int32) {
 				CUSTOM
@@ -106,40 +137,65 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				FIRST_PERSON
 				THIRD_PERSON
 			}
-			CameraProjection* = enum (int32) {
-				PERSPECTIVE
-				ORTHOGRAPHIC
+			CubemapLayout* = enum (int32) {
+				AUTO_DETECT
+				LINE_VERTICAL
+				LINE_HORIZONTAL
+				CROSS_THREE_BY_FOUR
+				CROSS_FOUR_BY_THREE
 			}
-			ShaderLocationIndex* = enum (int32) {
-				VERTEX_POSITION
-				VERTEX_TEXCOORD01
-				VERTEX_TEXCOORD02
-				VERTEX_NORMAL
-				VERTEX_TANGENT
-				VERTEX_COLOR
-				MATRIX_MVP
-				MATRIX_VIEW
-				MATRIX_PROJECTION
-				MATRIX_MODEL
-				MATRIX_NORMAL
-				VECTOR_VIEW
-				COLOR_DIFFUSE
-				COLOR_SPECULAR
-				COLOR_AMBIENT
-				MAP_ALBEDO
-				MAP_METALNESS
-				MAP_NORMAL
-				MAP_ROUGHNESS
-				MAP_OCCLUSION
-				MAP_EMISSION
-				MAP_HEIGHT
-				MAP_CUBEMAP
-				MAP_IRRADIANCE
-				MAP_PREFILTER
-				MAP_BRDF
-				VERTEX_BONEIDS
-				VERTEX_BONEWEIGHTS
-				BONE_MATRICES
+			TextureFilter* = enum (int32) {
+				POINT
+				BILINEAR
+				TRILINEAR
+				ANISOTROPIC_4X
+				ANISOTROPIC_8X
+				ANISOTROPIC_16X
+			}
+			PixelFormat* = enum (int32) {
+				UNKNOWN
+				UNCOMPRESSED_GRAYSCALE
+				UNCOMPRESSED_GRAY_ALPHA
+				UNCOMPRESSED_R5G6B5
+				UNCOMPRESSED_R8G8B8
+				UNCOMPRESSED_R5G5B5A1
+				UNCOMPRESSED_R4G4B4A4
+				UNCOMPRESSED_R8G8B8A8
+				UNCOMPRESSED_R32
+				UNCOMPRESSED_R32G32B32
+				UNCOMPRESSED_R32G32B32A32
+				UNCOMPRESSED_R16
+				UNCOMPRESSED_R16G16B16
+				UNCOMPRESSED_R16G16B16A16
+				COMPRESSED_DXT1_RGB
+				COMPRESSED_DXT1_RGBA
+				COMPRESSED_DXT3_RGBA
+				COMPRESSED_DXT5_RGBA
+				COMPRESSED_ETC1_RGB
+				COMPRESSED_ETC2_RGB
+				COMPRESSED_ETC2_EAC_RGBA
+				COMPRESSED_PVRT_RGB
+				COMPRESSED_PVRT_RGBA
+				COMPRESSED_ASTC_4x4_RGBA
+				COMPRESSED_ASTC_8x8_RGBA
+			}
+			NPatchLayout* = enum (int32) {
+				NINE_PATCH
+				THREE_PATCH_VERTICAL
+				THREE_PATCH_HORIZONTAL
+			}
+			MaterialMapIndex* = enum (int32) {
+				ALBEDO
+				METALNESS
+				NORMAL
+				ROUGHNESS
+				OCCLUSION
+				EMISSION
+				HEIGHT
+				CUBEMAP
+				IRRADIANCE
+				PREFILTER
+				BRDF
 			}
 			GamepadButton* = enum (int32) {
 				UNKNOWN
@@ -161,22 +217,6 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				LEFT_THUMB
 				RIGHT_THUMB
 			}
-			ShaderUniformDataType* = enum (int32) {
-				FLOAT
-				VEC2
-				VEC3
-				VEC4
-				INT
-				IVEC2
-				IVEC3
-				IVEC4
-				SAMPLER2D
-			}
-			FontType* = enum (int32) {
-				DEFAULT
-				BITMAP
-				SDF
-			}
 			MouseCursor* = enum (int32) {
 				DEFAULT
 				ARROW
@@ -190,18 +230,11 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				RESIZE_ALL
 				NOT_ALLOWED
 			}
-			MaterialMapIndex* = enum (int32) {
-				ALBEDO
-				METALNESS
-				NORMAL
-				ROUGHNESS
-				OCCLUSION
-				EMISSION
-				HEIGHT
-				CUBEMAP
-				IRRADIANCE
-				PREFILTER
-				BRDF
+			TextureWrap* = enum (int32) {
+				REPEAT
+				CLAMP
+				MIRROR_REPEAT
+				MIRROR_CLAMP
 			}
 			BlendMode* = enum (int32) {
 				ALPHA
@@ -213,28 +246,10 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				CUSTOM
 				CUSTOM_SEPARATE
 			}
-			ConfigFlag* = enum (int32) {
-				VSYNC_HINT = 6
-				FULLSCREEN_MODE
-				WINDOW_RESIZABLE
-				WINDOW_UNDECORATED
-				WINDOW_HIDDEN = 7
-				WINDOW_MINIMIZED = 9
-				WINDOW_MAXIMIZED
-				WINDOW_UNFOCUSED
-				WINDOW_TOPMOST
-				WINDOW_ALWAYS_RUN
-				WINDOW_TRANSPARENT
-				WINDOW_HIGHDPI = 13
-				WINDOW_MOUSE_PASSTHROUGH
-				BORDERLESS_WINDOWED_MODE
-				MSAA_4X_HINT
-				INTERLACED_HINT = 16
-			}
-			NPatchLayout* = enum (int32) {
-				NINE_PATCH
-				THREE_PATCH_VERTICAL
-				THREE_PATCH_HORIZONTAL
+			FontType* = enum (int32) {
+				DEFAULT
+				BITMAP
+				SDF
 			}
 			KeyboardKey* = enum (int32) {
 				KEY_NULL
@@ -348,109 +363,57 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				VOLUME_UP = 24
 				VOLUME_DOWN
 			}
-			PixelFormat* = enum (int32) {
-				UNKNOWN
-				UNCOMPRESSED_GRAYSCALE
-				UNCOMPRESSED_GRAY_ALPHA
-				UNCOMPRESSED_R5G6B5
-				UNCOMPRESSED_R8G8B8
-				UNCOMPRESSED_R5G5B5A1
-				UNCOMPRESSED_R4G4B4A4
-				UNCOMPRESSED_R8G8B8A8
-				UNCOMPRESSED_R32
-				UNCOMPRESSED_R32G32B32
-				UNCOMPRESSED_R32G32B32A32
-				UNCOMPRESSED_R16
-				UNCOMPRESSED_R16G16B16
-				UNCOMPRESSED_R16G16B16A16
-				COMPRESSED_DXT1_RGB
-				COMPRESSED_DXT1_RGBA
-				COMPRESSED_DXT3_RGBA
-				COMPRESSED_DXT5_RGBA
-				COMPRESSED_ETC1_RGB
-				COMPRESSED_ETC2_RGB
-				COMPRESSED_ETC2_EAC_RGBA
-				COMPRESSED_PVRT_RGB
-				COMPRESSED_PVRT_RGBA
-				COMPRESSED_ASTC_4x4_RGBA
-				COMPRESSED_ASTC_8x8_RGBA
+			ShaderLocationIndex* = enum (int32) {
+				VERTEX_POSITION
+				VERTEX_TEXCOORD01
+				VERTEX_TEXCOORD02
+				VERTEX_NORMAL
+				VERTEX_TANGENT
+				VERTEX_COLOR
+				MATRIX_MVP
+				MATRIX_VIEW
+				MATRIX_PROJECTION
+				MATRIX_MODEL
+				MATRIX_NORMAL
+				VECTOR_VIEW
+				COLOR_DIFFUSE
+				COLOR_SPECULAR
+				COLOR_AMBIENT
+				MAP_ALBEDO
+				MAP_METALNESS
+				MAP_NORMAL
+				MAP_ROUGHNESS
+				MAP_OCCLUSION
+				MAP_EMISSION
+				MAP_HEIGHT
+				MAP_CUBEMAP
+				MAP_IRRADIANCE
+				MAP_PREFILTER
+				MAP_BRDF
+				VERTEX_BONEIDS
+				VERTEX_BONEWEIGHTS
+				BONE_MATRICES
 			}
-			GamepadAxis* = enum (int32) {
-				LEFT_X
-				LEFT_Y
-				RIGHT_X
-				RIGHT_Y
-				LEFT_TRIGGER
-				RIGHT_TRIGGER
+			TraceLogLevel* = enum (int32) {
+				ALL
+				TRACE
+				DEBUG
+				INFO
+				WARNING
+				ERROR
+				FATAL
+				NONE
+			}
+			Gesture* = enum (uint32) {
+				TAP
+				DOUBLETAP
+				HOLD
+				DRAG
+				SWIPE_RIGHT
+				SWIPE_LEFT
+				SWIPE_UP
+				SWIPE_DOWN
+				PINCH_IN
+				PINCH_OUT
 			}
 			Quaternion* = quaternion128
-			Camera2D* = struct {
-				offset: Vector2
-				target: Vector2
-				rotation: real32
-				zoom: real32
-			}
-			Texture* = struct {
-				id: uint32
-				width: int32
-				height: int32
-				mipmaps: int32
-				format: PixelFormat
-			}
-			Transform* = struct {
-				translation: Vector3
-				rotation: Quaternion
-				scale: Vector3
-			}
-			NPatchInfo* = struct {
-				source: Rectangle
-				left: int32
-				top: int32
-				right: int32
-				bottom: int32
-				layout: NPatchLayout
-			}
-			RayCollision* = struct {
-				hit: bool
-				distance: real32
-				point: Vector3
-				normal: Vector3
-			}
-			Image* = struct {
-				data: ^void
-				width: int32
-				height: int32
-				mipmaps: int32
-				format: PixelFormat
-			}
-			Camera3D* = struct {
-				position: Vector3
-				target: Vector3
-				up: Vector3
-				fovy: real32
-				projection: CameraProjection
-			}
-			GlyphInfo* = struct {
-				value: uint32
-				offsetX: int32
-				offsetY: int32
-				advanceX: int32
-				image: Image
-			}
-			Ray* = struct {
-				position: Vector3
-				direction: Vector3
-			}
-			BoundingBox* = struct {
-				min: Vector3
-				max: Vector3
-			}
-			Camera* = Camera3D
-			Texture2D* = Texture
-			TextureCubemap* = Texture
-			RenderTexture* = struct {
-				id: uint32
-				texture: Texture
-				depth: Texture
-			}
-			RenderTexture2D* = RenderTexture

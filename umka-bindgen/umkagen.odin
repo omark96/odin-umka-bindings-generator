@@ -13,8 +13,12 @@ import "vendor:raylib"
 
 
 Type_Kind :: enum {
+	Unimplemented,
 	Pointer,
+	Call_Expr,
 	Proc,
+	Proc_Type,
+	Proc_Group,
 	Param,
 	Struct,
 	Builtin,
@@ -23,6 +27,12 @@ Type_Kind :: enum {
 	Enum,
 	Alias,
 	Distinct,
+	Binary_Expr,
+	Comp_Lit,
+	Basic_Lit,
+	Tag_Expr,
+	Bit_Set,
+	Helper,
 	MultiPointer,
 	Field,
 	Ident,
@@ -30,7 +40,7 @@ Type_Kind :: enum {
 
 Type :: struct {
 	kind:         Type_Kind,
-	base_type:    string,
+	base_type:    ^Type,
 	names:        [dynamic]string,
 	fields:       [dynamic]Type,
 	params:       [dynamic]Type,
@@ -38,7 +48,10 @@ Type :: struct {
 	dependencies: map[string]struct {
 	},
 	length:       int,
-	value:        int,
+	value:        union {
+		int,
+		string,
+	},
 }
 
 // Odin_Param_Type :: struct {
@@ -86,6 +99,7 @@ Umka_Builtin_Type :: struct {
 	stack_slot: StackSlot,
 }
 
+temp_types: [dynamic]Type
 
 main :: proc() {
 	when ODIN_DEBUG {
@@ -107,8 +121,9 @@ main :: proc() {
 		}
 	}
 	fmt.println("Init")
-
-	pkg, ok := parser.parse_package_from_path("./example")
+	add_extras()
+	pkg, ok := parser.parse_package_from_path("./raylib")
+	// pkg, ok := parser.parse_package_from_path("./example")
 	if !ok {
 		fmt.println("error: failed to read package")
 		os.exit(1)
@@ -116,7 +131,7 @@ main :: proc() {
 	assert(pkg.kind == .Normal)
 	fmt.println("Read pkg")
 
-
+	basic_lit_types: [dynamic]string
 	for file_name, file in pkg.files {
 		fmt.println("Reading:", file_name)
 		for decl in file.decls {
@@ -130,17 +145,24 @@ main :: proc() {
 
 			if len(vd.values) != 1 do continue
 
-			type := get_type(vd.values[0].derived_expr)
 			type_name := vd.names[0].derived_expr.(^ast.Ident).name
-
-			if type.kind == .Proc {
+			#partial switch kind in vd.values[0].derived_expr {
+			case ^ast.Proc_Lit:
 				if len(vd.attributes) <= 0 do continue
 				attr_ident := vd.attributes[0].elems[0].derived_expr.(^ast.Ident)
 				if attr_ident.name != "umka_fn" do continue
 			}
-			// fmt.printfln("Type name: %s\n%#v", type_name, type)
-			odin_types[type_name] = type
-
+			// fmt.println(type_name)
+			type := get_type(vd.values[0].derived_expr)
+			// if type_name == "PI" {
+			// 	fmt.printfln("%#v", type)
+			// }
+			if type.kind == .Basic_Lit {
+				// fmt.printfln("Type name: %s\n%#v", type_name, type)
+				append(&basic_lit_types, type_name)
+			}
+			odin_types[type_name] = type^
+			// fmt.printfln("%v:\n%#v", type_name, type)
 			// cmd := Codegen_Command {
 			// 	file_path = proc_ident.pos.file,
 			// 	line      = cast(i32)proc_ident.pos.line,
@@ -151,42 +173,53 @@ main :: proc() {
 			// append(&cmds, cmd)
 		}
 	}
-
+	fmt.printfln("%#v", basic_lit_types)
+	fmt.println("Generating bindings")
 	// generate_bindings()
-
 	// for name, type in odin_types {
-	// 	if type.kind != .Builtin && type.kind != .Proc {
+	// 	if type.kind != .Builtin && type.kind == .Proc {
 	// 		fmt.printfln("%v:\n%#v", name, type)
 	// 	}
+	// }
+	// for field in odin_types["Some_Struct4"].fields {
+	// 	fmt.printfln("Field name: %#v\nField type: %#v", field.names[0], field.base_type^)
 	// }
 
 }
 
-get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
-	codegen_type := Type{}
+get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
+	codegen_type := new(Type)
 	ok: bool
 
 	#partial switch type in derived_expr {
 	case ^ast.Basic_Lit:
-		// {
-		// 	fmt.println(type)
-		// }
-		break
-	case ^ast.Multi_Pointer_Type:
-		type_name: string
-		#partial switch mp_type in type.elem.derived_expr {
-		case ^ast.Selector_Expr:
-			type_name = fmt.aprintf(
-				"%#v.%#v",
-				mp_type.expr.derived_expr.(^ast.Ident).name,
-				mp_type.field.name,
-			)
-		case ^ast.Ident:
-			type_name = mp_type.name
+		// Ident,   // main
+		// Integer, // 12345
+		// Float,   // 123.45
+		// Imag,    // 123.45i
+		// Rune,    // 'a'
+		// String,  // "abc"
+		codegen_type.kind = .Basic_Lit
+		base_type := new(Type)
+		#partial switch type.tok.kind {
+		case .String:
+		// base_type.kind = .
 		}
+		fmt.printfln("%#v", type)
+	case ^ast.Multi_Pointer_Type:
 		codegen_type.kind = .MultiPointer
-		codegen_type.base_type = type_name
-		if type_name in codegen_type.dependencies == false {
+		base_type := get_type(type.elem.derived_expr)
+		codegen_type.base_type = base_type
+		codegen_type.dependencies = base_type.dependencies
+	case ^ast.Selector_Expr:
+		codegen_type.kind = .Alias
+		type_name := fmt.aprintf(
+			"%#v.%#v",
+			type.expr.derived_expr.(^ast.Ident).name,
+			type.field.name,
+		)
+		append(&codegen_type.names, type_name)
+		if type_name not_in codegen_type.dependencies {
 			if type_name in odin_types {
 				if odin_types[type_name].kind != .Builtin {
 					codegen_type.dependencies[type_name] = {}
@@ -195,86 +228,61 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 				codegen_type.dependencies[type_name] = {}
 			}
 		}
-	case ^ast.Selector_Expr:
-		codegen_type.base_type = fmt.aprintf(
-			"%#v.%#v",
-			type.expr.derived_expr.(^ast.Ident).name,
-			type.field.name,
-		)
 	case ^ast.Struct_Type:
 		codegen_type.kind = .Struct
 		for field in type.fields.list {
-			codegen_field := get_type(field.type.derived_expr)
+			codegen_field := Type {
+				kind = .Field,
+			}
+			base_type := get_type(field.type.derived_expr)
+			// fmt.printfln("%#v", base_type)
+			// fmt.printfln("%#v", temp_types[len(temp_types) - 1])
+			codegen_field.base_type = base_type
+			for dependency in base_type.dependencies {
+				if dependency not_in codegen_field.dependencies {
+					codegen_field.dependencies[dependency] = {}
+				}
+			}
 			for name in field.names {
 				field_name := name.derived_expr.(^ast.Ident).name
 				append(&codegen_field.names, field_name)
 			}
 			// fmt.printfln("%#v", codegen_field)
-			type_name := codegen_field.base_type
-			if type_name in codegen_type.dependencies == false {
-				if type_name in odin_types {
-					if odin_types[type_name].kind != .Builtin {
-						codegen_type.dependencies[type_name] = {}
-					}
-				} else {
-					codegen_type.dependencies[type_name] = {}
+			append(&codegen_type.fields, codegen_field)
+		}
+		for field in codegen_type.fields {
+			for dependency in field.dependencies {
+				if dependency not_in codegen_type.dependencies {
+					codegen_type.dependencies[dependency] = {}
 				}
 			}
-			append(&codegen_type.fields, codegen_field)
 		}
 	case ^ast.Array_Type:
 		// type_name := type.elem.derived_expr.(^ast.Ident).name
-		type_name: string
-		#partial switch array_type in type.elem.derived_expr {
-		case ^ast.Selector_Expr:
-			type_name = fmt.aprintf(
-				"%#v.%#v",
-				array_type.expr.derived_expr.(^ast.Ident).name,
-				array_type.field.name,
-			)
-		case ^ast.Ident:
-			type_name = array_type.name
-		}
-		if type_name in codegen_type.dependencies == false {
-			if type_name in odin_types {
-				if odin_types[type_name].kind != .Builtin {
-					codegen_type.dependencies[type_name] = {}
-				}
-			} else {
-				codegen_type.dependencies[type_name] = {}
-			}
-		}
+		base_type := get_type(type.elem.derived_expr)
+		codegen_type.base_type = base_type
 		if (type.len != nil) {
 			length_string := type.len.derived_expr.(^ast.Basic_Lit).tok.text
 			length, ok := strconv.parse_int(length_string)
 			codegen_type.kind = .Array
-			codegen_type.base_type = type_name
 			codegen_type.length = length
 		} else {
 			codegen_type.kind = .Slice
-			codegen_type.base_type = type_name
 		}
 	case ^ast.Enum_Type:
 		codegen_type.kind = .Enum
 		if type.base_type != nil {
-			#partial switch base_type in type.base_type.derived_expr {
-			case ^ast.Ident:
-				codegen_type.base_type = base_type.name
-			case ^ast.Selector_Expr:
-				codegen_type.base_type = fmt.aprintf(
-					"%#v.%#v",
-					base_type.expr.derived_expr.(^ast.Ident).name,
-					base_type.field.name,
-				)
-			}
+			codegen_type.base_type = get_type(type.base_type.derived_expr)
 		} else {
-			codegen_type.base_type = "int"
+			base_type := new(Type)
+			base_type.kind = .Builtin
+			append(&base_type.names, "int")
+			codegen_type.base_type = base_type
 		}
 		val := 0
 		for field in type.fields {
-			codegen_enum_field := Type {
-				kind = .Field,
-			}
+			codegen_enum_field := new(Type)
+			codegen_enum_field = &{kind = .Field}
 			#partial switch type in field.derived_expr {
 			case ^ast.Field_Value:
 				{
@@ -293,35 +301,25 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 
 				}
 			}
-			append(&codegen_type.fields, codegen_enum_field)
+			append(&codegen_type.fields, codegen_enum_field^)
 			val += 1
 		}
 	case ^ast.Ident:
-		base_type := type.name
-		codegen_type.kind = .Alias
-		codegen_type.base_type = base_type
-		if base_type in codegen_type.dependencies == false {
-			if base_type in odin_types {
-				if odin_types[base_type].kind != .Builtin {
-					codegen_type.dependencies[base_type] = {}
+		codegen_type.kind = .Ident
+		append(&codegen_type.names, type.name)
+		// codegen_type.base_type = &odin_types[type.name]
+		if type.name not_in codegen_type.dependencies {
+			if type.name in odin_types {
+				if odin_types[type.name].kind != .Builtin {
+					codegen_type.dependencies[type.name] = {}
 				}
 			} else {
-				codegen_type.dependencies[base_type] = {}
+				codegen_type.dependencies[type.name] = {}
 			}
 		}
 	case ^ast.Distinct_Type:
 		codegen_type.kind = .Distinct
-
-		distinct_type := get_type(type.type.derived_expr)
-		#partial switch distinct_type.kind {
-		case .Array:
-			codegen_type.base_type = fmt.aprintf(
-				"[%d]%v",
-				distinct_type.length,
-				distinct_type.base_type,
-			)
-		}
-		fmt.printfln("%#v", codegen_type)
+		codegen_type.base_type = get_type(type.type.derived_expr)
 
 	// #partial switch expr in type.derived_expr {
 	// case ^ast.Ident:
@@ -329,10 +327,35 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 	// case ^ast.Array_Type:
 	// 	fmt.println(expr.elem.derived_expr.(^ast.Ident).name)
 	// }
-
+	case ^ast.Proc_Type:
+		codegen_type.kind = .Proc_Type
+	case ^ast.Proc_Group:
+		codegen_type.kind = .Proc_Group
+	case ^ast.Call_Expr:
+		codegen_type.kind = .Call_Expr
+	case ^ast.Binary_Expr:
+		// TODO! Range bit sets
+		codegen_type.kind = .Binary_Expr
+	// fmt.printfln("%#v", type)
+	// fmt.printfln("%#v", type.left.derived_expr.(^ast.Basic_Lit).tok.text)
+	// fmt.printfln("%#v", type.right.derived_expr.(^ast.Basic_Lit).tok.text)
+	case ^ast.Comp_Lit:
+		codegen_type.kind = .Comp_Lit
+	case ^ast.Tag_Expr:
+		codegen_type.kind = .Tag_Expr
+	case ^ast.Bit_Set_Type:
+		codegen_type.kind = .Bit_Set
+		codegen_type.base_type = get_type(type.elem.derived_expr)
+		for dependency in codegen_type.base_type.dependencies {
+			if dependency not_in codegen_type.dependencies {
+				codegen_type.dependencies[dependency] = {}
+			}
+		}
+		fmt.printfln("%#v", codegen_type)
+	case ^ast.Helper_Type:
+		codegen_type.kind = .Helper
 	case ^ast.Proc_Lit:
 		codegen_type.kind = .Proc
-
 		param_index := 1
 		params := type.type.params.list
 		if params != nil {
@@ -340,9 +363,10 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 				for param_name in param.names {
 					if param_type, param_type_ok := param.type.derived_expr.(^ast.Ident);
 					   param_type_ok {
+						base_type := get_type(param_type)
 						codegen_param := Type {
 							kind      = .Param,
-							base_type = param_type.name,
+							base_type = base_type,
 						}
 						append(&codegen_param.names, param_name.derived_expr.(^ast.Ident).name)
 						append(&codegen_type.params, codegen_param)
@@ -365,10 +389,11 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 				result_index := 1
 				if result_type, result_type_ok := result.type.derived_expr.(^ast.Ident);
 				   result_type_ok {
+					base_type := get_type(result_type.derived_expr)
 					for result_name in result.names {
 						odin_param_type := Type {
 							kind      = .Param,
-							base_type = result_type.name,
+							base_type = base_type,
 						}
 						append(&odin_param_type.names, result_name.derived_expr.(^ast.Ident).name)
 						append(&codegen_type.returns, odin_param_type)
@@ -382,7 +407,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 					}
 					if len(result.names) == 0 {
 						odin_result_type := Type {
-							base_type = result_type.name,
+							base_type = base_type,
 						}
 						append(&codegen_type.returns, odin_result_type)
 
@@ -391,7 +416,8 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 				}
 			}
 		}
-
+	case:
+		fmt.printfln("%#v", derived_expr.(^ast.Relative_Type))
 	// codegen_type.base_type = base_type.name
 	// if base_type in codegen_type.dependencies == false {
 	// 	if base_type in odin_types {
@@ -404,7 +430,6 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 	// }
 	// odin_types[ident] = codegen_type
 	}
-
 	return codegen_type
 }
 
@@ -419,7 +444,11 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> Type {
 // 	}
 // }
 
+
+// TODO: Fix this!
+
 generate_bindings :: proc() {
+	// f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
 	f, _ := os.open("./example/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
 	defer os.close(f)
 	fmt.fprintln(
@@ -450,7 +479,7 @@ import "core:fmt"
 				proc_name,
 			)
 			for param, i in type.params {
-				if param.base_type == "string" {
+				if param.base_type.names[0] == "string" {
 					fmt.fprintfln(
 						f,
 						`	c_%s := cast(^cstring)umka.GetParam(params, %d)`,
@@ -463,18 +492,18 @@ import "core:fmt"
 						f,
 						`	%s := cast(^%s)umka.GetParam(params, %d)`,
 						param.names[0],
-						param.base_type,
+						param.base_type.names[0],
 						i,
 					)
 				}
 			}
 			if len(type.returns) > 0 {
 				stack_slot := StackSlot.ptrVal
-				type_name := type.returns[0].base_type
+				type_name := type.returns[0].base_type.names[0]
 				odin_type := odin_types[type_name]
 				#partial switch odin_type.kind {
 				case .Distinct:
-					if umka_type, ok := odin_to_umka[odin_type.base_type]; ok {
+					if umka_type, ok := odin_to_umka[odin_type.base_type.names[0]]; ok {
 						stack_slot = umka_type.stack_slot
 					}
 				case .Builtin:
@@ -482,7 +511,7 @@ import "core:fmt"
 						stack_slot = umka_type.stack_slot
 					}
 				case .Alias:
-					if umka_type, ok := odin_to_umka[odin_type.base_type]; ok {
+					if umka_type, ok := odin_to_umka[odin_type.base_type.names[0]]; ok {
 						stack_slot = umka_type.stack_slot
 					}
 				}
@@ -502,13 +531,13 @@ import "core:fmt"
 				fmt.fprintf(f, `	res := %s(`, proc_name)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
-						if param.base_type == "string" {
+						if param.base_type.names[0] == "string" {
 							fmt.fprintf(f, `%s, `, param.names[0])
 						} else {
 							fmt.fprintf(f, `%s^, `, param.names[0])
 						}
 					} else {
-						if param.base_type == "string" {
+						if param.base_type.names[0] == "string" {
 							fmt.fprintfln(f, `%s) `, param.names[0])
 						} else {
 							fmt.fprintfln(f, `%s^) `, param.names[0])
@@ -521,13 +550,13 @@ import "core:fmt"
 				fmt.fprintf(f, `	%s(`, proc_name)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
-						if param.base_type == "string" {
+						if param.base_type.names[0] == "string" {
 							fmt.fprintf(f, `%s, `, param.names[0])
 						} else {
 							fmt.fprintf(f, `%s^, `, param.names[0])
 						}
 					} else {
-						if param.base_type == "string" {
+						if param.base_type.names[0] == "string" {
 							fmt.fprintfln(f, `%s) `, param.names[0])
 						} else {
 							fmt.fprintfln(f, `%s^) `, param.names[0])
@@ -579,8 +608,14 @@ import "core:fmt"
 				for field in type.fields {
 					fmt.fprintf(f, `				`)
 					for name, i in field.names {
+						odin_type_name: string
+						if field.base_type.base_type != nil {
+							odin_type_name = field.base_type.base_type.names[0]
+						} else {
+							odin_type_name = field.base_type.names[0]
+						}
 						type_name :=
-							field.base_type in odin_to_umka ? odin_to_umka[field.base_type].name : field.base_type
+							odin_type_name in odin_to_umka ? odin_to_umka[odin_type_name].name : odin_type_name
 						if i < len(field.names) - 1 {
 							fmt.fprintf(f, `%s,`, name)
 						} else {
@@ -607,7 +642,7 @@ import "core:fmt"
 					delete_key(&unresolved_types, array_name)
 				}
 				type_name :=
-					type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
+					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
 				fmt.fprintfln(f, `			%s* = [%d]%s`, array_name, type.length, type_name)
 				added_types[array_name] = {}
 			}
@@ -617,24 +652,25 @@ import "core:fmt"
 			if type.kind == .Enum && enum_name in added_types == false {
 
 				backing_string :=
-					type.base_type != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type].name) : ""
+					type.base_type.names[0] != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type.names[0]].name) : ""
 				fmt.fprintfln(f, `			%s* = enum %s{{`, enum_name, backing_string)
 				prev_val := -1
 				for field in type.fields {
-					if field.value - prev_val > 1 {
+					if field.value.(int) - prev_val > 1 {
 						fmt.fprintfln(f, `				%s = %d`, field.names[0], field.value)
 					} else {
 						fmt.fprintfln(f, `				%s`, field.names[0])
 					}
-					prev_val = field.value
+					prev_val = field.value.(int)
 				}
 				fmt.fprintfln(f, `			}}`)
 				added_types[enum_name] = {}
 			}
 		}
 		for alias_name, type in odin_types {
-			if (type.kind == .Alias || type.kind == .Distinct) &&
-			   alias_name in added_types == false {
+			if type.kind == .Ident && alias_name in added_types == false {
+				fmt.println("Generating", alias_name)
+				fmt.printfln("%#v", type)
 				unresolved_dependency := false
 				for dependency in type.dependencies {
 					if dependency in added_types == false {
@@ -648,9 +684,31 @@ import "core:fmt"
 					delete_key(&unresolved_types, alias_name)
 				}
 				type_name :=
-					type.base_type in odin_to_umka ? odin_to_umka[type.base_type].name : type.base_type
+					type.names[0] in odin_to_umka ? odin_to_umka[type.names[0]].name : type.names[0]
 				fmt.fprintfln(f, `			%s* = %s`, alias_name, type_name)
 				added_types[alias_name] = {}
+			}
+		}
+		for distinct_name, type in odin_types {
+			if type.kind == .Distinct && distinct_name in added_types == false {
+				fmt.println("Generating", distinct_name)
+				fmt.printfln("%#v", type)
+				unresolved_dependency := false
+				for dependency in type.dependencies {
+					if dependency in added_types == false {
+						unresolved_dependency = true
+						unresolved_types[distinct_name] = {}
+					}
+				}
+				if unresolved_dependency == true {
+					continue
+				} else if distinct_name in unresolved_types {
+					delete_key(&unresolved_types, distinct_name)
+				}
+				type_name :=
+					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
+				fmt.fprintfln(f, `			%s* = %s`, distinct_name, type_name)
+				added_types[distinct_name] = {}
 			}
 		}
 		unresolved_count := len(unresolved_types)
@@ -679,7 +737,7 @@ import "core:fmt"
 			}
 			for param, i in type.params {
 				param_type :=
-					param.base_type in odin_to_umka ? odin_to_umka[param.base_type].name : param.base_type
+					param.base_type.names[0] in odin_to_umka ? odin_to_umka[param.base_type.names[0]].name : param.base_type.names[0]
 				if i < len(type.params) - 1 {
 					fmt.fprintf(f, `%s: %s, `, param.names[0], param_type)
 				} else {
@@ -688,7 +746,7 @@ import "core:fmt"
 			}
 			if len(type.returns) > 0 {
 				return_type :=
-					type.returns[0].base_type in odin_to_umka ? odin_to_umka[type.returns[0].base_type].name : type.returns[0].base_type
+					type.returns[0].base_type.names[0] in odin_to_umka ? odin_to_umka[type.returns[0].base_type.names[0]].name : type.returns[0].base_type.names[0]
 				fmt.fprintf(f, `: %s`, return_type)
 			}
 			fmt.fprintfln(f, "")
