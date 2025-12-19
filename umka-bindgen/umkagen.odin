@@ -36,6 +36,9 @@ Type_Kind :: enum {
 	MultiPointer,
 	Field,
 	Ident,
+	String_Lit,
+	Float_Lit,
+	Integer_Lit,
 }
 
 Type :: struct {
@@ -45,11 +48,13 @@ Type :: struct {
 	fields:       [dynamic]Type,
 	params:       [dynamic]Type,
 	returns:      [dynamic]Type,
-	dependencies: map[string]struct {
-	},
+	dependencies: map[string]struct{},
 	length:       int,
 	value:        union {
+		i32,
 		int,
+		f32,
+		f64,
 		string,
 	},
 }
@@ -173,7 +178,7 @@ main :: proc() {
 			// append(&cmds, cmd)
 		}
 	}
-	fmt.printfln("%#v", basic_lit_types)
+	fmt.printfln("%#v", odin_types["ModelAnimation"])
 	fmt.println("Generating bindings")
 	// generate_bindings()
 	// for name, type in odin_types {
@@ -193,19 +198,24 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 
 	#partial switch type in derived_expr {
 	case ^ast.Basic_Lit:
-		// Ident,   // main
 		// Integer, // 12345
 		// Float,   // 123.45
+		// String,  // "abc"
+		// Unimplemented
+		// Ident,   // main
 		// Imag,    // 123.45i
 		// Rune,    // 'a'
-		// String,  // "abc"
-		codegen_type.kind = .Basic_Lit
-		base_type := new(Type)
 		#partial switch type.tok.kind {
 		case .String:
-		// base_type.kind = .
+			codegen_type.kind = .String_Lit
+			codegen_type.value = type.tok.text
+		case .Float:
+			codegen_type.kind = .Float_Lit
+			codegen_type.value, _ = strconv.parse_f64(type.tok.text)
+		case .Integer:
+			codegen_type.kind = .Integer_Lit
+			codegen_type.value, _ = strconv.parse_int(type.tok.text)
 		}
-		fmt.printfln("%#v", type)
 	case ^ast.Multi_Pointer_Type:
 		codegen_type.kind = .MultiPointer
 		base_type := get_type(type.elem.derived_expr)
@@ -269,6 +279,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		} else {
 			codegen_type.kind = .Slice
 		}
+
 	case ^ast.Enum_Type:
 		codegen_type.kind = .Enum
 		if type.base_type != nil {
@@ -351,7 +362,6 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 				codegen_type.dependencies[dependency] = {}
 			}
 		}
-		fmt.printfln("%#v", codegen_type)
 	case ^ast.Helper_Type:
 		codegen_type.kind = .Helper
 	case ^ast.Proc_Lit:
@@ -446,6 +456,22 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 
 
 // TODO: Fix this!
+
+umka_base_type_name :: proc(base_type: Type) -> string {
+	name: string
+	#partial switch base_type.kind {
+	// TODO: Correct??
+	case .Pointer:
+		name = fmt.aprint("^", base_type.names[0])
+	case .Array:
+		name = fmt.aprintf("[%d]%s", base_type.length, umka_base_type_name(base_type.base_type^))
+	case .MultiPointer:
+
+	case:
+		name = base_type.names[0]
+	}
+	return name
+}
 
 generate_bindings :: proc() {
 	// f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
@@ -579,10 +605,8 @@ import "core:fmt"
 		}
 	}
 
-	unresolved_types: map[string]struct {
-	}
-	added_types: map[string]struct {
-	}
+	unresolved_types: map[string]struct{}
+	added_types: map[string]struct{}
 	prev_unresolved_count := 0
 	fmt.fprintfln(f, `	rv := umka.AddModule(
 		ctx^,
@@ -591,6 +615,7 @@ import "core:fmt"
 	fmt.fprintln(f, `		type (`)
 	for {
 		for struct_name, type in odin_types {
+			fmt.println("Generating", struct_name)
 			if type.kind == .Struct && struct_name in added_types == false {
 				unresolved_dependency := false
 				for dependency in type.dependencies {
@@ -670,7 +695,7 @@ import "core:fmt"
 		for alias_name, type in odin_types {
 			if type.kind == .Ident && alias_name in added_types == false {
 				fmt.println("Generating", alias_name)
-				fmt.printfln("%#v", type)
+				// fmt.printfln("%#v", type)
 				unresolved_dependency := false
 				for dependency in type.dependencies {
 					if dependency in added_types == false {
@@ -692,7 +717,7 @@ import "core:fmt"
 		for distinct_name, type in odin_types {
 			if type.kind == .Distinct && distinct_name in added_types == false {
 				fmt.println("Generating", distinct_name)
-				fmt.printfln("%#v", type)
+				// fmt.printfln("%#v", type)
 				unresolved_dependency := false
 				for dependency in type.dependencies {
 					if dependency in added_types == false {
@@ -705,8 +730,21 @@ import "core:fmt"
 				} else if distinct_name in unresolved_types {
 					delete_key(&unresolved_types, distinct_name)
 				}
-				type_name :=
-					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
+				type_name: string
+				// type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
+				#partial switch type.base_type.kind {
+				case .Array:
+					type_name = fmt.aprintf(
+						"[%d]%s",
+						type.base_type.length,
+						type.base_type.base_type.names[0],
+					)
+				case .Bit_Set:
+					type_name = fmt.aprintf("[]%s", type.base_type.base_type.names[0])
+				case:
+					fmt.println(type.base_type)
+
+				}
 				fmt.fprintfln(f, `			%s* = %s`, distinct_name, type_name)
 				added_types[distinct_name] = {}
 			}
@@ -714,8 +752,8 @@ import "core:fmt"
 		unresolved_count := len(unresolved_types)
 		fmt.printfln("Unresolved types:")
 		for unresolved in unresolved_types {
-			fmt.println(unresolved)
-			fmt.printfln("%#v", odin_types[unresolved])
+			// fmt.println(unresolved)
+			// fmt.printfln("%#v", odin_types[unresolved])
 		}
 		if unresolved_count == 0 {
 			break

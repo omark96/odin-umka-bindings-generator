@@ -6,144 +6,502 @@ import "../umka"
 import "base:runtime"
 import "core:fmt"
 
-umka_some_func_without_args :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	some_func_without_args()
-}
-				
-umka_print_string :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	c_s := cast(^cstring)umka.GetParam(params, 0)
-	s := string(c_s^)
-	print_string(s) 
-}
-				
-umka_print_some_enum_value :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	v := cast(^Some_Enum)umka.GetParam(params, 0)
-	print_some_enum_value(v^) 
-}
-				
-umka_print_some_array :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	a := cast(^Some_Array)umka.GetParam(params, 0)
-	print_some_array(a^) 
-}
-				
-umka_some_func :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	a := cast(^int)umka.GetParam(params, 0)
-	res := some_func(a^) 
-	result.ptrVal = cast(rawptr)&res
-}
-				
-umka_add :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	a := cast(^int)umka.GetParam(params, 0)
-	b := cast(^int)umka.GetParam(params, 1)
-	res := add(a^, b^) 
-	result.intVal = cast(i64)res
-}
-				
-umka_print_some_struct :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	s := cast(^Some_Struct)umka.GetParam(params, 0)
-	print_some_struct(s^) 
-}
-				
-umka_print_cstring :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	s := cast(^cstring)umka.GetParam(params, 0)
-	print_cstring(s^) 
-}
-				
-umka_some_func2 :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-
-	a := cast(^int)umka.GetParam(params, 0)
-	some_func2(a^) 
-}
-				
 umka_add_bindings :: proc(ctx: ^umka.Context) {
-	fmt.println("Adding some_func_without_args")
-	umka.AddFunc(ctx^, "some_func_without_args", umka_some_func_without_args)
-	fmt.println("Adding print_string")
-	umka.AddFunc(ctx^, "print_string", umka_print_string)
-	fmt.println("Adding print_some_enum_value")
-	umka.AddFunc(ctx^, "print_some_enum_value", umka_print_some_enum_value)
-	fmt.println("Adding print_some_array")
-	umka.AddFunc(ctx^, "print_some_array", umka_print_some_array)
-	fmt.println("Adding some_func")
-	umka.AddFunc(ctx^, "some_func", umka_some_func)
-	fmt.println("Adding add")
-	umka.AddFunc(ctx^, "add", umka_add)
-	fmt.println("Adding print_some_struct")
-	umka.AddFunc(ctx^, "print_some_struct", umka_print_some_struct)
-	fmt.println("Adding print_cstring")
-	umka.AddFunc(ctx^, "print_cstring", umka_print_cstring)
-	fmt.println("Adding some_func2")
-	umka.AddFunc(ctx^, "some_func2", umka_some_func2)
 	rv := umka.AddModule(
 		ctx^,
 		"bindings.um",
 		`
 		type (
-			Some_Struct2* = struct {
-				a,b: int
-				d: int32
-				e: bool
+			Wave* = struct {
+				frameCount: uint32
+				sampleRate: uint32
+				sampleSize: uint32
+				channels: uint32
+				data: ^void
 			}
-			Some_Struct3* = struct {
+			AudioStream* = struct {
+				buffer: ^void
+				processor: ^void
+				sampleRate: uint32
+				sampleSize: uint32
+				channels: uint32
 			}
-			Some_Struct5* = struct {
-				e: int32
+			BoneInfo* = struct {
+				name: byte
+				parent: int32
 			}
-			Some_Struct* = struct {
-				a: int
-				b: bool
+			VrDeviceInfo* = struct {
+				hResolution: int32
+				vResolution: int32
+				hScreenSize: real32
+				vScreenSize: real32
+				eyeToScreenDistance: real32
+				lensSeparationDistance: real32
+				interpupillaryDistance: real32
+				lensDistortionValues: real32
+				chromaAbCorrection: real32
 			}
-			Some_Array* = [4]int
-			Some_Array2* = [5]uint8
+			VrStereoConfig* = struct {
+				projection: Matrix
+				viewOffset: Matrix
+				leftLensCenter: real32
+				rightLensCenter: real32
+				leftScreenCenter: real32
+				rightScreenCenter: real32
+				scale: real32
+				scaleIn: real32
+			}
+			AutomationEvent* = struct {
+				frame: uint32
+				type: uint32
+				params: int32
+			}
+			Shader* = struct {
+				id: uint32
+				locs: int32
+			}
+			FilePathList* = struct {
+				capacity: uint32
+				count: uint32
+				paths: str
+			}
+			Rectangle* = struct {
+				x: real32
+				y: real32
+				width: real32
+				height: real32
+			}
+			Vector3* = [3]real32
 			quaternion128* = [4]real32
-			Some_Enum* = enum {
-				A = 1
-				B
-				C = 5
-				D
+			Vector2* = [2]real32
+			Vector4* = [4]real32
+			MaterialMapIndex* = enum (int32) {
+				ALBEDO
+				METALNESS
+				NORMAL
+				ROUGHNESS
+				OCCLUSION
+				EMISSION
+				HEIGHT
+				CUBEMAP
+				IRRADIANCE
+				PREFILTER
+				BRDF
 			}
-			Some_U8_Enum* = enum (uint8) {
-				A
+			Gesture* = enum (uint32) {
+				TAP
+				DOUBLETAP
+				HOLD
+				DRAG
+				SWIPE_RIGHT
+				SWIPE_LEFT
+				SWIPE_UP
+				SWIPE_DOWN
+				PINCH_IN
+				PINCH_OUT
+			}
+			PixelFormat* = enum (int32) {
+				UNKNOWN
+				UNCOMPRESSED_GRAYSCALE
+				UNCOMPRESSED_GRAY_ALPHA
+				UNCOMPRESSED_R5G6B5
+				UNCOMPRESSED_R8G8B8
+				UNCOMPRESSED_R5G5B5A1
+				UNCOMPRESSED_R4G4B4A4
+				UNCOMPRESSED_R8G8B8A8
+				UNCOMPRESSED_R32
+				UNCOMPRESSED_R32G32B32
+				UNCOMPRESSED_R32G32B32A32
+				UNCOMPRESSED_R16
+				UNCOMPRESSED_R16G16B16
+				UNCOMPRESSED_R16G16B16A16
+				COMPRESSED_DXT1_RGB
+				COMPRESSED_DXT1_RGBA
+				COMPRESSED_DXT3_RGBA
+				COMPRESSED_DXT5_RGBA
+				COMPRESSED_ETC1_RGB
+				COMPRESSED_ETC2_RGB
+				COMPRESSED_ETC2_EAC_RGBA
+				COMPRESSED_PVRT_RGB
+				COMPRESSED_PVRT_RGBA
+				COMPRESSED_ASTC_4x4_RGBA
+				COMPRESSED_ASTC_8x8_RGBA
+			}
+			ShaderLocationIndex* = enum (int32) {
+				VERTEX_POSITION
+				VERTEX_TEXCOORD01
+				VERTEX_TEXCOORD02
+				VERTEX_NORMAL
+				VERTEX_TANGENT
+				VERTEX_COLOR
+				MATRIX_MVP
+				MATRIX_VIEW
+				MATRIX_PROJECTION
+				MATRIX_MODEL
+				MATRIX_NORMAL
+				VECTOR_VIEW
+				COLOR_DIFFUSE
+				COLOR_SPECULAR
+				COLOR_AMBIENT
+				MAP_ALBEDO
+				MAP_METALNESS
+				MAP_NORMAL
+				MAP_ROUGHNESS
+				MAP_OCCLUSION
+				MAP_EMISSION
+				MAP_HEIGHT
+				MAP_CUBEMAP
+				MAP_IRRADIANCE
+				MAP_PREFILTER
+				MAP_BRDF
+				VERTEX_BONEIDS
+				VERTEX_BONEWEIGHTS
+				BONE_MATRICES
+			}
+			MouseCursor* = enum (int32) {
+				DEFAULT
+				ARROW
+				IBEAM
+				CROSSHAIR
+				POINTING_HAND
+				RESIZE_EW
+				RESIZE_NS
+				RESIZE_NWSE
+				RESIZE_NESW
+				RESIZE_ALL
+				NOT_ALLOWED
+			}
+			TextureFilter* = enum (int32) {
+				POINT
+				BILINEAR
+				TRILINEAR
+				ANISOTROPIC_4X
+				ANISOTROPIC_8X
+				ANISOTROPIC_16X
+			}
+			NPatchLayout* = enum (int32) {
+				NINE_PATCH
+				THREE_PATCH_VERTICAL
+				THREE_PATCH_HORIZONTAL
+			}
+			GamepadAxis* = enum (int32) {
+				LEFT_X
+				LEFT_Y
+				RIGHT_X
+				RIGHT_Y
+				LEFT_TRIGGER
+				RIGHT_TRIGGER
+			}
+			TraceLogLevel* = enum (int32) {
+				ALL
+				TRACE
+				DEBUG
+				INFO
+				WARNING
+				ERROR
+				FATAL
+				NONE
+			}
+			KeyboardKey* = enum (int32) {
+				KEY_NULL
+				APOSTROPHE = 39
+				COMMA = 44
+				MINUS
+				PERIOD
+				SLASH
+				ZERO
+				ONE
+				TWO
+				THREE
+				FOUR
+				FIVE
+				SIX
+				SEVEN
+				EIGHT
+				NINE
+				SEMICOLON = 59
+				EQUAL = 61
+				A = 65
 				B
 				C
 				D
+				E
+				F
+				G
+				H
+				I
+				J
+				K
+				L
+				M
+				N
+				O
+				P
+				Q
+				R
+				S
+				T
+				U
+				V
+				W
+				X
+				Y
+				Z
+				LEFT_BRACKET
+				BACKSLASH
+				RIGHT_BRACKET
+				GRAVE = 96
+				SPACE
+				ESCAPE = 256
+				ENTER
+				TAB
+				BACKSPACE
+				INSERT
+				DELETE
+				RIGHT
+				LEFT
+				DOWN
+				UP
+				PAGE_UP
+				PAGE_DOWN
+				HOME
+				END
+				CAPS_LOCK = 280
+				SCROLL_LOCK
+				NUM_LOCK
+				PRINT_SCREEN
+				PAUSE
+				F1 = 290
+				F2
+				F3
+				F4
+				F5
+				F6
+				F7
+				F8
+				F9
+				F10
+				F11
+				F12
+				LEFT_SHIFT = 340
+				LEFT_CONTROL
+				LEFT_ALT
+				LEFT_SUPER
+				RIGHT_SHIFT
+				RIGHT_CONTROL
+				RIGHT_ALT
+				RIGHT_SUPER
+				KB_MENU
+				KP_0
+				KP_1
+				KP_2
+				KP_3
+				KP_4
+				KP_5
+				KP_6
+				KP_7
+				KP_8
+				KP_9
+				KP_DECIMAL
+				KP_DIVIDE
+				KP_MULTIPLY
+				KP_SUBTRACT
+				KP_ADD
+				KP_ENTER
+				KP_EQUAL
+				BACK
+				MENU
+				VOLUME_UP = 24
+				VOLUME_DOWN
 			}
-			My_Int* = int
-			Some_Struct_Alias* = Some_Struct
-			My_Distinct_Int* = int
-			Some_Struct4* = struct {
-				a: real32
-				b: uint32
-				c: Some_Struct3
-				d: real
+			MouseButton* = enum (int32) {
+				LEFT
+				RIGHT
+				MIDDLE
+				SIDE
+				EXTRA
+				FORWARD
+				BACK
 			}
-		)
-		fn some_func_without_args*()
-		fn print_string*(s: str)
-		fn print_some_enum_value*(v: Some_Enum)
-		fn print_some_array*(a: Some_Array)
-		fn some_func*(a: int): Some_Struct
-		fn add*(a: int, b: int): int
-		fn print_some_struct*(s: Some_Struct)
-		fn print_cstring*(s: str)
-		fn some_func2*(a: int)
-	`,
-	)
-}
+			GamepadButton* = enum (int32) {
+				UNKNOWN
+				LEFT_FACE_UP
+				LEFT_FACE_RIGHT
+				LEFT_FACE_DOWN
+				LEFT_FACE_LEFT
+				RIGHT_FACE_UP
+				RIGHT_FACE_RIGHT
+				RIGHT_FACE_DOWN
+				RIGHT_FACE_LEFT
+				LEFT_TRIGGER_1
+				LEFT_TRIGGER_2
+				RIGHT_TRIGGER_1
+				RIGHT_TRIGGER_2
+				MIDDLE_LEFT
+				MIDDLE
+				MIDDLE_RIGHT
+				LEFT_THUMB
+				RIGHT_THUMB
+			}
+			ShaderUniformDataType* = enum (int32) {
+				FLOAT
+				VEC2
+				VEC3
+				VEC4
+				INT
+				IVEC2
+				IVEC3
+				IVEC4
+				SAMPLER2D
+			}
+			TextureWrap* = enum (int32) {
+				REPEAT
+				CLAMP
+				MIRROR_REPEAT
+				MIRROR_CLAMP
+			}
+			CubemapLayout* = enum (int32) {
+				AUTO_DETECT
+				LINE_VERTICAL
+				LINE_HORIZONTAL
+				CROSS_THREE_BY_FOUR
+				CROSS_FOUR_BY_THREE
+			}
+			BlendMode* = enum (int32) {
+				ALPHA
+				ADDITIVE
+				MULTIPLIED
+				ADD_COLORS
+				SUBTRACT_COLORS
+				ALPHA_PREMULTIPLY
+				CUSTOM
+				CUSTOM_SEPARATE
+			}
+			CameraMode* = enum (int32) {
+				CUSTOM
+				FREE
+				ORBITAL
+				FIRST_PERSON
+				THIRD_PERSON
+			}
+			FontType* = enum (int32) {
+				DEFAULT
+				BITMAP
+				SDF
+			}
+			CameraProjection* = enum (int32) {
+				PERSPECTIVE
+				ORTHOGRAPHIC
+			}
+			ConfigFlag* = enum (int32) {
+				VSYNC_HINT = 6
+				FULLSCREEN_MODE
+				WINDOW_RESIZABLE
+				WINDOW_UNDECORATED
+				WINDOW_HIDDEN = 7
+				WINDOW_MINIMIZED = 9
+				WINDOW_MAXIMIZED
+				WINDOW_UNFOCUSED
+				WINDOW_TOPMOST
+				WINDOW_ALWAYS_RUN
+				WINDOW_TRANSPARENT
+				WINDOW_HIGHDPI = 13
+				WINDOW_MOUSE_PASSTHROUGH
+				BORDERLESS_WINDOWED_MODE
+				MSAA_4X_HINT
+				INTERLACED_HINT = 16
+			}
+			Quaternion* = quaternion128
+			Color* = [4]u8
+			Gestures* = []Gesture
+			ConfigFlags* = []ConfigFlag
+			Camera2D* = struct {
+				offset: Vector2
+				target: Vector2
+				rotation: real32
+				zoom: real32
+			}
+			NPatchInfo* = struct {
+				source: Rectangle
+				left: int32
+				top: int32
+				right: int32
+				bottom: int32
+				layout: NPatchLayout
+			}
+			RayCollision* = struct {
+				hit: bool
+				distance: real32
+				point: Vector3
+				normal: Vector3
+			}
+			BoundingBox* = struct {
+				min: Vector3
+				max: Vector3
+			}
+			AutomationEventList* = struct {
+				capacity: uint32
+				count: uint32
+				events: AutomationEvent
+			}
+			Sound* = struct {
+				stream: AudioStream
+				frameCount: uint32
+			}
+			Camera3D* = struct {
+				position: Vector3
+				target: Vector3
+				up: Vector3
+				fovy: real32
+				projection: CameraProjection
+			}
+			Image* = struct {
+				data: ^void
+				width: int32
+				height: int32
+				mipmaps: int32
+				format: PixelFormat
+			}
+			Ray* = struct {
+				position: Vector3
+				direction: Vector3
+			}
+			Music* = struct {
+				stream: AudioStream
+				frameCount: uint32
+				looping: bool
+				ctxType: int32
+				ctxData: ^void
+			}
+			Texture* = struct {
+				id: uint32
+				width: int32
+				height: int32
+				mipmaps: int32
+				format: PixelFormat
+			}
+			GlyphInfo* = struct {
+				value: uint32
+				offsetX: int32
+				offsetY: int32
+				advanceX: int32
+				image: Image
+			}
+			Transform* = struct {
+				translation: Vector3
+				rotation: Quaternion
+				scale: Vector3
+			}
+			Camera* = Camera3D
+			TextureCubemap* = Texture
+			Texture2D* = Texture
+			MaterialMap* = struct {
+				texture: Texture2D
+				color: Color
+				value: real32
+			}
+			ModelAnimation* = struct {
+				boneCount: int32
+				frameCount: int32
+				bones: BoneInfo
+				
