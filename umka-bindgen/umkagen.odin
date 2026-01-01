@@ -50,16 +50,11 @@ Type :: struct {
 	fields:       [dynamic]Type,
 	params:       [dynamic]Type,
 	returns:      [dynamic]Type,
-	dependencies: map[string]struct {
-	},
+	dependencies: map[string]struct{},
 	length:       int,
-	value:        union {
-		i32,
-		int,
-		f32,
-		f64,
-		string,
-	},
+	value:        define_value,
+	left:         ^Type,
+	right:        ^Type,
 }
 
 // Odin_Param_Type :: struct {
@@ -155,15 +150,17 @@ main :: proc() {
 
 			type_name := vd.names[0].derived_expr.(^ast.Ident).name
 			if type_name == "_" do continue
-			fmt.println(type_name)
 			// if strings.contains(type_name, "ModelAnimation") do continue
 			#partial switch kind in vd.values[0].derived_expr {
 			case ^ast.Proc_Lit:
 				if len(vd.attributes) <= 0 do continue
 				attr_ident := vd.attributes[0].elems[0].derived_expr.(^ast.Ident)
 				if attr_ident.name != "umka_fn" do continue
+			case ^ast.Proc_Group:
+				continue
 			}
 			// fmt.println(type_name)
+			fmt.println(type_name)
 			type := get_type(vd.values[0].derived_expr)
 			// if type_name == "PI" {
 			// 	fmt.printfln("%#v", type)
@@ -184,7 +181,7 @@ main :: proc() {
 			// append(&cmds, cmd)
 		}
 	}
-	// fmt.println("Generating bindings")
+	fmt.println("Generating bindings")
 	// generate_bindings()
 	// for name, type in odin_types {
 	// 	if type.kind != .Builtin && type.kind == .Proc {
@@ -213,14 +210,14 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		#partial switch type.tok.kind {
 		case .String:
 			codegen_type.kind = .String_Lit
-			codegen_type.value = type.tok.text
 		case .Float:
 			codegen_type.kind = .Float_Lit
-			codegen_type.value, _ = strconv.parse_f64(type.tok.text)
+		// codegen_type.value, _ = strconv.parse_f64(type.tok.text)
 		case .Integer:
 			codegen_type.kind = .Integer_Lit
-			codegen_type.value, _ = strconv.parse_int(type.tok.text)
+		// codegen_type.value, _ = strconv.parse_int(type.tok.text)
 		}
+		codegen_type.value = type.tok.text
 	case ^ast.Multi_Pointer_Type:
 		codegen_type.kind = .MultiPointer
 		base_type := get_type(type.elem.derived_expr)
@@ -338,28 +335,54 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.base_type = get_type(type.type.derived_expr)
 	case ^ast.Proc_Type:
 		codegen_type.kind = .Unimplemented
-		unimplemented(fmt.tprintf("Proc Type not implemented yet", type))
+		unimplemented(fmt.tprintf("Proc Type not implemented yet \n%#v", type))
 	case ^ast.Proc_Group:
 		codegen_type.kind = .Unimplemented
-		unimplemented(fmt.tprintf("Proc Group type not implemented yet", type))
+		unimplemented(fmt.tprintf("Proc Group type not implemented yet \n%#v", type))
 	case ^ast.Call_Expr:
-		codegen_type.kind = .Unimplemented
-		for arg in type.args {
-			arg_type := get_type(arg.derived_expr)
-			// fmt.printfln("Arg type: %#v", arg_type)
-			fmt.printfln("%#v", arg_type)
+		define_name := get_type(type.args[0].derived_expr).names[0]
+		value_type := get_type(type.args[1].derived_expr)
+		if define_name in define_overrides {
+			fmt.println(define_overrides[define_name])
+			codegen_type.value = define_overrides[define_name]
+		} else {
+			codegen_type.value = value_type.value
 		}
-		unimplemented(fmt.tprintf("Call Expr type not implemented yet %#v"))
+		codegen_type.kind = value_type.kind
 	case ^ast.Binary_Expr:
 		// TODO! Range bit sets
-		codegen_type.kind = .Unimplemented
-		unimplemented(fmt.tprintf("Binary Expr type not implemented yet", type))
+		codegen_type.kind = .Binary_Expr
+		codegen_type.left = get_type(type.left.derived_expr)
+		codegen_type.right = get_type(type.right.derived_expr)
+		for dependency in codegen_type.left.dependencies {
+			if dependency not_in codegen_type.dependencies {
+				codegen_type.dependencies[dependency] = {}
+			}
+		}
+		for dependency in codegen_type.right.dependencies {
+			if dependency not_in codegen_type.dependencies {
+				codegen_type.dependencies[dependency] = {}
+			}
+		}
+		codegen_type.value = type.op.text
+	// fmt.printfln("%#v", codegen_type)
+	// fmt.printfln("%#v", codegen_type.left)
+	// fmt.printfln("%#v", codegen_type.right)
 	// fmt.printfln("%#v", type)
 	// fmt.printfln("%#v", type.left.derived_expr.(^ast.Basic_Lit).tok.text)
 	// fmt.printfln("%#v", type.right.derived_expr.(^ast.Basic_Lit).tok.text)
 	case ^ast.Comp_Lit:
-		codegen_type.kind = .Unimplemented
-		unimplemented(fmt.tprintf("Comp Lit type not implemented yet", type))
+		codegen_type.kind = .Comp_Lit
+		type_name := type.type.derived_expr.(^ast.Ident).name
+		fmt.printfln("Comp Lit Type Name: %s", type_name)
+		append(&codegen_type.names, type_name)
+		codegen_type.dependencies[type_name] = {}
+		for elem in type.elems {
+			elem_type := get_type(elem.derived_expr)
+			append(&codegen_type.fields, elem_type^)
+		}
+		fmt.printfln("%#v", codegen_type)
+	// unimplemented(fmt.tprintf("Comp Lit type not implemented yet \n%#v", type))
 	case ^ast.Tag_Expr:
 		codegen_type.kind = .Tag_Expr
 		append(&codegen_type.names, type.name)
@@ -460,7 +483,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		}
 	case:
-		fmt.printfln("%#v", derived_expr.(^ast.Relative_Type))
+		fmt.printfln("%#v", type)
 	// codegen_type.base_type = base_type.name
 	// if base_type in codegen_type.dependencies == false {
 	// 	if base_type in odin_types {
@@ -638,10 +661,8 @@ import "core:fmt"
 		}
 	}
 
-	unresolved_types: map[string]struct {
-	}
-	added_types: map[string]struct {
-	}
+	unresolved_types: map[string]struct{}
+	added_types: map[string]struct{}
 	prev_unresolved_count := 0
 	fmt.fprintfln(f, `	rv := umka.AddModule(
 		ctx^,
