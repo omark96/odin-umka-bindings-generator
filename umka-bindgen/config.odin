@@ -86,6 +86,17 @@ odin_types := map[string]Type {
 	"uintptr" = Type{kind = .Builtin, names = {"uintptr"}},
 	"c.uint" = Type{kind = .Builtin, names = {"c.uint"}},
 }
+define_value :: union {
+	i32,
+	int,
+	f32,
+	f64,
+	string,
+	bool,
+}
+define_overrides := map[string]define_value {
+	"RAYLIB_MAX_TEXTFORMAT_BUFFERS" = int(4),
+}
 
 add_extras :: proc() {
 	f32_type := new_clone(odin_types["f32"])

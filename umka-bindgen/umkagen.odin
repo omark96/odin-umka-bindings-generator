@@ -9,6 +9,7 @@ import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
 import "core:strconv"
+import "core:strings"
 import "vendor:raylib"
 
 
@@ -39,6 +40,7 @@ Type_Kind :: enum {
 	String_Lit,
 	Float_Lit,
 	Integer_Lit,
+	Matrix,
 }
 
 Type :: struct {
@@ -48,7 +50,8 @@ Type :: struct {
 	fields:       [dynamic]Type,
 	params:       [dynamic]Type,
 	returns:      [dynamic]Type,
-	dependencies: map[string]struct{},
+	dependencies: map[string]struct {
+	},
 	length:       int,
 	value:        union {
 		i32,
@@ -151,6 +154,9 @@ main :: proc() {
 			if len(vd.values) != 1 do continue
 
 			type_name := vd.names[0].derived_expr.(^ast.Ident).name
+			if type_name == "_" do continue
+			fmt.println(type_name)
+			// if strings.contains(type_name, "ModelAnimation") do continue
 			#partial switch kind in vd.values[0].derived_expr {
 			case ^ast.Proc_Lit:
 				if len(vd.attributes) <= 0 do continue
@@ -178,8 +184,7 @@ main :: proc() {
 			// append(&cmds, cmd)
 		}
 	}
-	fmt.printfln("%#v", odin_types["ModelAnimation"])
-	fmt.println("Generating bindings")
+	// fmt.println("Generating bindings")
 	// generate_bindings()
 	// for name, type in odin_types {
 	// 	if type.kind != .Builtin && type.kind == .Proc {
@@ -331,29 +336,57 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Distinct_Type:
 		codegen_type.kind = .Distinct
 		codegen_type.base_type = get_type(type.type.derived_expr)
-
-	// #partial switch expr in type.derived_expr {
-	// case ^ast.Ident:
-	// 	fmt.println(expr.name)
-	// case ^ast.Array_Type:
-	// 	fmt.println(expr.elem.derived_expr.(^ast.Ident).name)
-	// }
 	case ^ast.Proc_Type:
-		codegen_type.kind = .Proc_Type
+		codegen_type.kind = .Unimplemented
+		unimplemented(fmt.tprintf("Proc Type not implemented yet", type))
 	case ^ast.Proc_Group:
-		codegen_type.kind = .Proc_Group
+		codegen_type.kind = .Unimplemented
+		unimplemented(fmt.tprintf("Proc Group type not implemented yet", type))
 	case ^ast.Call_Expr:
-		codegen_type.kind = .Call_Expr
+		codegen_type.kind = .Unimplemented
+		for arg in type.args {
+			arg_type := get_type(arg.derived_expr)
+			// fmt.printfln("Arg type: %#v", arg_type)
+			fmt.printfln("%#v", arg_type)
+		}
+		unimplemented(fmt.tprintf("Call Expr type not implemented yet %#v"))
 	case ^ast.Binary_Expr:
 		// TODO! Range bit sets
-		codegen_type.kind = .Binary_Expr
+		codegen_type.kind = .Unimplemented
+		unimplemented(fmt.tprintf("Binary Expr type not implemented yet", type))
 	// fmt.printfln("%#v", type)
 	// fmt.printfln("%#v", type.left.derived_expr.(^ast.Basic_Lit).tok.text)
 	// fmt.printfln("%#v", type.right.derived_expr.(^ast.Basic_Lit).tok.text)
 	case ^ast.Comp_Lit:
-		codegen_type.kind = .Comp_Lit
+		codegen_type.kind = .Unimplemented
+		unimplemented(fmt.tprintf("Comp Lit type not implemented yet", type))
 	case ^ast.Tag_Expr:
 		codegen_type.kind = .Tag_Expr
+		append(&codegen_type.names, type.name)
+		codegen_type.base_type = get_type(type.expr.derived_expr)
+	// fmt.printfln("%#v", type)
+	// fmt.println(size_of(raylib.Matrix))
+	// matrix_type := type.expr.derived_expr.(^ast.Matrix_Type)
+	// fmt.printfln("%#v", matrix_type)
+	// fmt.printfln(
+	// 	"Columns: %#v",
+	// matrix_type.column_count.derived_expr.(^ast.Basic_Lit).tok.text,
+	// )
+	// fmt.printfln("Rows: %#v", matrix_type.row_count.derived_expr.(^ast.Basic_Lit).tok.text)
+	case ^ast.Matrix_Type:
+		codegen_type.kind = .Matrix
+		columns := new(Type)
+		columns.kind = .Array
+		columns.length, _ = strconv.parse_int(
+			type.column_count.derived_expr.(^ast.Basic_Lit).tok.text,
+		)
+		columns.base_type = new(Type)
+		columns.base_type.kind = .Array
+		columns.base_type.length, _ = strconv.parse_int(
+			type.row_count.derived_expr.(^ast.Basic_Lit).tok.text,
+		)
+		columns.base_type.base_type = get_type(type.elem.derived_expr)
+		codegen_type.base_type = columns
 	case ^ast.Bit_Set_Type:
 		codegen_type.kind = .Bit_Set
 		codegen_type.base_type = get_type(type.elem.derived_expr)
@@ -462,20 +495,20 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 	#partial switch base_type.kind {
 	// TODO: Correct??
 	case .Pointer:
-		name = fmt.aprint("^", base_type.names[0])
+		name = fmt.aprintf("%s%s", "^", base_type.names[0])
 	case .Array:
 		name = fmt.aprintf("[%d]%s", base_type.length, umka_base_type_name(base_type.base_type^))
 	case .MultiPointer:
-
+		name = fmt.aprintf("%s%s", "^", umka_base_type_name(base_type.base_type^))
 	case:
 		name = base_type.names[0]
 	}
-	return name
+	return name in odin_to_umka ? odin_to_umka[name].name : name
 }
 
 generate_bindings :: proc() {
 	// f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
-	f, _ := os.open("./example/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
+	f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
 	defer os.close(f)
 	fmt.fprintln(
 		f,
@@ -605,8 +638,10 @@ import "core:fmt"
 		}
 	}
 
-	unresolved_types: map[string]struct{}
-	added_types: map[string]struct{}
+	unresolved_types: map[string]struct {
+	}
+	added_types: map[string]struct {
+	}
 	prev_unresolved_count := 0
 	fmt.fprintfln(f, `	rv := umka.AddModule(
 		ctx^,
@@ -633,14 +668,7 @@ import "core:fmt"
 				for field in type.fields {
 					fmt.fprintf(f, `				`)
 					for name, i in field.names {
-						odin_type_name: string
-						if field.base_type.base_type != nil {
-							odin_type_name = field.base_type.base_type.names[0]
-						} else {
-							odin_type_name = field.base_type.names[0]
-						}
-						type_name :=
-							odin_type_name in odin_to_umka ? odin_to_umka[odin_type_name].name : odin_type_name
+						type_name := umka_base_type_name(field.base_type^)
 						if i < len(field.names) - 1 {
 							fmt.fprintf(f, `%s,`, name)
 						} else {
