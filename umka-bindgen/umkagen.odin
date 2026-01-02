@@ -138,38 +138,43 @@ main :: proc() {
 	for file_name, file in pkg.files {
 		fmt.println("Reading:", file_name)
 		for decl in file.decls {
-			// @(codegen_command) proc_name :: proc() {}
-			//  ^~~~attribute     ^~~~name     ^~~~value
-			vd: ^ast.Value_Decl
-			ok: bool
-
-			if vd, ok = decl.derived_stmt.(^ast.Value_Decl); !ok do continue
-			if vd.is_mutable do continue
-
-			if len(vd.values) != 1 do continue
-
-			type_name := vd.names[0].derived_expr.(^ast.Ident).name
-			if type_name == "_" do continue
-			// if strings.contains(type_name, "ModelAnimation") do continue
-			#partial switch kind in vd.values[0].derived_expr {
-			case ^ast.Proc_Lit:
-				if len(vd.attributes) <= 0 do continue
-				attr_ident := vd.attributes[0].elems[0].derived_expr.(^ast.Ident)
-				if attr_ident.name != "umka_fn" do continue
-			case ^ast.Proc_Group:
+			#partial switch stmt in decl.derived_stmt {
+			case ^ast.Value_Decl:
+				if stmt.is_mutable do continue
+				if len(stmt.values) != 1 do continue
+				type_name := stmt.names[0].derived_expr.(^ast.Ident).name
+				if type_name == "_" do continue
+				#partial switch kind in stmt.values[0].derived_expr {
+				case ^ast.Proc_Lit:
+					if len(stmt.attributes) <= 0 do continue
+					attr_ident := stmt.attributes[0].elems[0].derived_expr.(^ast.Ident)
+					if attr_ident.name != "umka_fn" do continue
+				case ^ast.Proc_Group:
+					continue
+				}
+				fmt.println(type_name)
+				type := get_type(stmt.values[0].derived_expr)
+				if type_name == "InitWindow" {
+					fmt.printfln("%#v", type)
+				}
+				if type.kind == .Basic_Lit {
+					// fmt.printfln("Type name: %s\n%#v", type_name, type)
+					append(&basic_lit_types, type_name)
+				}
+				odin_types[type_name] = type^
+			case ^ast.Foreign_Block_Decl:
+				fmt.printfln(
+					"%#v",
+					stmt.body.derived_stmt.(^ast.Block_Stmt).stmts[0].derived_stmt.(^ast.Value_Decl).names[0].derived_expr.(^ast.Ident).name,
+				)
+			case:
 				continue
 			}
-			// fmt.println(type_name)
-			fmt.println(type_name)
-			type := get_type(vd.values[0].derived_expr)
-			// if type_name == "PI" {
-			// 	fmt.printfln("%#v", type)
-			// }
-			if type.kind == .Basic_Lit {
-				// fmt.printfln("Type name: %s\n%#v", type_name, type)
-				append(&basic_lit_types, type_name)
-			}
-			odin_types[type_name] = type^
+
+
+			// if strings.contains(type_name, "ModelAnimation") do continue
+
+
 			// fmt.printfln("%v:\n%#v", type_name, type)
 			// cmd := Codegen_Command {
 			// 	file_path = proc_ident.pos.file,
