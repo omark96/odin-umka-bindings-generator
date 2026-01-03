@@ -3,6 +3,20 @@ package umkagen
 
 only_marked_fns := true
 
+package_import :: struct {
+	name:  string,
+	path:  string,
+	alias: string,
+}
+
+packages_to_import := []package_import {
+	{name = "raylib", path = "vendor:raylib", alias = "rl"},
+	{name = "c", path = "core:c"},
+	{name = "fmt", path = "core:fmt"},
+	{name = "runtime", path = "base:runtime"},
+	{name = "umka", path = "../../umka"},
+}
+
 odin_to_umka := map[string]Umka_Builtin_Type {
 	"i8" = Umka_Builtin_Type{name = "int8", stack_slot = .intVal},
 	"i16" = Umka_Builtin_Type{name = "int16", stack_slot = .intVal},
@@ -84,9 +98,9 @@ odin_types := map[string]Type {
 	// "u64le"         = Type{kind = .Builtin},
 	"u8" = Type{kind = .Builtin, names = {"u8"}},
 	"uint" = Type{kind = .Builtin, names = {"uint"}},
-	"c.int" = Type{kind = .Builtin, names = {"c.int"}},
+	"c.int" = Type{kind = .Ident, names = {"int"}, pkg = "c"},
 	"uintptr" = Type{kind = .Builtin, names = {"uintptr"}},
-	"c.uint" = Type{kind = .Builtin, names = {"c.uint"}},
+	"c.uint" = Type{kind = .Ident, names = {"uint"}, pkg = "c"},
 }
 define_value :: union {
 	i32,

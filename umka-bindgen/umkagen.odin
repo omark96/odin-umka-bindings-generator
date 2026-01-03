@@ -5,6 +5,7 @@ import "base:runtime"
 import "core:fmt"
 import "core:log"
 import "core:mem"
+import "core:odin"
 import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
@@ -44,6 +45,7 @@ Type_Kind :: enum {
 }
 
 Type :: struct {
+	pkg:          string,
 	kind:         Type_Kind,
 	base_type:    ^Type,
 	names:        [dynamic]string,
@@ -56,38 +58,6 @@ Type :: struct {
 	left:         ^Type,
 	right:        ^Type,
 }
-
-// Odin_Param_Type :: struct {
-// 	name: string,
-// 	type: string,
-// }
-
-
-// Odin_Field :: struct {
-// 	names: [dynamic]string,
-// 	type:  string,
-// }
-
-// Odin_Enum_Field :: struct {
-// 	name:  string,
-// 	value: int,
-// }
-
-
-// Umka_Proc :: struct {
-// 	name:    string,
-// 	params:  [dynamic]Umka_Param,
-// 	returns: [dynamic]Umka_Result,
-// }
-
-// Umka_Param :: struct {
-// 	name: string,
-// 	type: Umka_Type,
-// }
-
-// Umka_Result :: struct {
-// 	type: Umka_Type,
-// }
 
 StackSlot :: enum {
 	intVal,
@@ -138,24 +108,14 @@ main :: proc() {
 		fmt.println("Reading:", file_name)
 		for decl in file.decls {
 			get_types(decl)
-
-
-			// if strings.contains(type_name, "ModelAnimation") do continue
-
-
-			// fmt.printfln("%v:\n%#v", type_name, type)
-			// cmd := Codegen_Command {
-			// 	file_path = proc_ident.pos.file,
-			// 	line      = cast(i32)proc_ident.pos.line,
-			// 	column    = cast(i32)proc_ident.pos.column,
-			// 	procedure = proc_ident.name,
-			// }
-
-			// append(&cmds, cmd)
 		}
 	}
-	fmt.println("Generating bindings")
+	for name, &type in odin_types {
+		type.pkg = "rl"
+	}
+	// fmt.println("Generating bindings")
 	generate_bindings()
+	// fmt.printfln("%#v", odin_types["InitWindow"])
 	// for name, type in odin_types {
 	// 	if type.kind != .Builtin && type.kind == .Proc {
 	// 		fmt.printfln("%v:\n%#v", name, type)
@@ -242,12 +202,15 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.base_type = base_type
 		codegen_type.dependencies = base_type.dependencies
 	case ^ast.Selector_Expr:
-		codegen_type.kind = .Alias
+		// codegen_type.kind = .Selector
 		type_name := fmt.aprintf(
 			"%#v.%#v",
 			type.expr.derived_expr.(^ast.Ident).name,
 			type.field.name,
 		)
+		pkg := get_type(type.expr.derived_expr)
+		codegen_type = get_type(type.field)
+		codegen_type.pkg = pkg.names[0]
 		append(&codegen_type.names, type_name)
 		if type_name not_in codegen_type.dependencies {
 			if type_name in odin_types {
@@ -550,12 +513,16 @@ generate_bindings :: proc() {
 		`//This file is generated. To generate it again, run:
 // odin run umka-bindgen -custom-attribute=umka_fn
 package example
-
-import "../umka"
-import "base:runtime"
-import "core:fmt"
 `,
 	)
+	for pkg in packages_to_import {
+		fmt.fprintfln(
+			f,
+			`import%s "%s"`,
+			pkg.alias != "" ? fmt.aprintf(" %s", pkg.alias) : "",
+			pkg.path,
+		)
+	}
 	// if proc_type, proc_type_ok := vd.values[0].derived_expr.(^ast.Proc_Lit); proc_type_ok {
 	for proc_name, type in odin_types {
 		if type.kind == .Proc {
@@ -584,8 +551,9 @@ import "core:fmt"
 				} else {
 					fmt.fprintfln(
 						f,
-						`	%s := cast(^%s)umka.GetParam(params, %d)`,
+						`	%s := cast(^%s%s)umka.GetParam(params, %d)`,
 						param.names[0],
+						param.base_type.pkg != "" ? fmt.aprintf("%s.", param.base_type.pkg) : "",
 						param.base_type.names[0],
 						i,
 					)
@@ -622,7 +590,13 @@ import "core:fmt"
 				case .real32Val:
 					return_type = "f32"
 				}
-				fmt.fprintf(f, `	res := %s(`, proc_name)
+				fmt.fprintf(
+					f,
+					`	res := %s%s(`,
+					type.pkg != "" ? fmt.aprintf("%s.", type.pkg) : "",
+					proc_name,
+				)
+				fmt.printfln("%#v", type)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
 						if param.base_type.names[0] == "string" {
@@ -632,16 +606,23 @@ import "core:fmt"
 						}
 					} else {
 						if param.base_type.names[0] == "string" {
-							fmt.fprintfln(f, `%s) `, param.names[0])
+							fmt.fprintfln(f, `%s `, param.names[0])
 						} else {
-							fmt.fprintfln(f, `%s^) `, param.names[0])
+							fmt.fprintfln(f, `%s^ `, param.names[0])
 						}
 					}
 				}
+
+				fmt.fprintln(f, ")")
 				ptr_string := stack_slot == .ptrVal ? "&" : ""
 				fmt.fprintfln(f, `	result.%s = cast(%s)%sres`, stack_slot, return_type, ptr_string)
 			} else {
-				fmt.fprintf(f, `	%s(`, proc_name)
+				fmt.fprintf(
+					f,
+					`	%s%s(`,
+					type.pkg != "" ? fmt.aprintf("%s.", type.pkg) : "",
+					proc_name,
+				)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
 						if param.base_type.names[0] == "string" {

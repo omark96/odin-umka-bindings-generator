@@ -1,44 +1,45 @@
 //This file is generated. To generate it again, run:
 // odin run umka-bindgen -custom-attribute=umka_fn
-package bindings
+package raylib_example
 
 import "../../umka"
 import "base:runtime"
 import "core:c"
 import "core:fmt"
-import "vendor:raylib"
-
+import rl "vendor:raylib"
 umka_InitWindow :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 	context = runtime.default_context()
 
 	width := cast(^c.int)umka.GetParam(params, 0)
 	height := cast(^c.int)umka.GetParam(params, 1)
 	title := cast(^cstring)umka.GetParam(params, 2)
-	raylib.InitWindow(width^, height^, title^)
+	rl.InitWindow(width^, height^, title^)
 }
 
 umka_BeginDrawing :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 	context = runtime.default_context()
 
-	raylib.BeginDrawing()
+	rl.BeginDrawing()
+}
+
+umka_WindowShouldClose :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
+	context = runtime.default_context()
+
+	res := rl.WindowShouldClose()
+	result.intVal = cast(i64)res
 }
 
 umka_EndDrawing :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 	context = runtime.default_context()
 
-	raylib.EndDrawing()
-}
-
-umka_WindowShouldClose :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
-	context = runtime.default_context()
-	result.intVal = cast(i64)raylib.WindowShouldClose()
+	rl.EndDrawing()
 }
 
 umka_ClearBackground :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {
 	context = runtime.default_context()
 
-	color := cast(^raylib.Color)umka.GetParam(params, 0)
-	raylib.ClearBackground(color^)
+	color := cast(^rl.Color)umka.GetParam(params, 0)
+	rl.ClearBackground(color^)
 }
 
 umka_add_bindings :: proc(ctx: ^umka.Context) {
@@ -46,10 +47,10 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 	umka.AddFunc(ctx^, "InitWindow", umka_InitWindow)
 	fmt.println("Adding BeginDrawing")
 	umka.AddFunc(ctx^, "BeginDrawing", umka_BeginDrawing)
-	fmt.println("Adding EndDrawing")
-	umka.AddFunc(ctx^, "EndDrawing", umka_EndDrawing)
 	fmt.println("Adding WindowShouldClose")
 	umka.AddFunc(ctx^, "WindowShouldClose", umka_WindowShouldClose)
+	fmt.println("Adding EndDrawing")
+	umka.AddFunc(ctx^, "EndDrawing", umka_EndDrawing)
 	fmt.println("Adding ClearBackground")
 	umka.AddFunc(ctx^, "ClearBackground", umka_ClearBackground)
 	rv := umka.AddModule(
@@ -57,83 +58,50 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 		"bindings.um",
 		`
 		type (
-			BoneInfo* = struct {
-				name: [32]uint8
-				parent: int32
-			}
-			VrDeviceInfo* = struct {
-				hResolution: int32
-				vResolution: int32
-				hScreenSize: real32
-				vScreenSize: real32
-				eyeToScreenDistance: real32
-				lensSeparationDistance: real32
-				interpupillaryDistance: real32
-				lensDistortionValues: [4]real32
-				chromaAbCorrection: [4]real32
-			}
-			FilePathList* = struct {
-				capacity: uint32
-				count: uint32
-				paths: ^str
-			}
-			AudioStream* = struct {
-				buffer: ^void
-				processor: ^void
-				sampleRate: uint32
-				sampleSize: uint32
-				channels: uint32
-			}
-			Sound* = struct {
-				stream: AudioStream
-				frameCount: uint32
-			}
-			Wave* = struct {
-				frameCount: uint32
-				sampleRate: uint32
-				sampleSize: uint32
-				channels: uint32
-				data: ^void
-			}
-			Music* = struct {
-				stream: AudioStream
-				frameCount: uint32
-				looping: bool
-				ctxType: int32
-				ctxData: ^void
-			}
 			Rectangle* = struct {
 				x: real32
 				y: real32
 				width: real32
 				height: real32
 			}
-			AutomationEvent* = struct {
-				frame: uint32
-				_type: uint32
-				params: [4]int32
-			}
-			Shader* = struct {
-				id: uint32
-				locs: ^int32
-			}
-			AutomationEventList* = struct {
-				capacity: uint32
-				count: uint32
-				events: ^AutomationEvent
-			}
 			Vector3* = [3]real32
-			quaternion128* = [4]real32
-			Vector2* = [2]real32
 			Vector4* = [4]real32
-			CameraMode* = enum (int32) {
+			Vector2* = [2]real32
+			quaternion128* = [4]real32
+			MaterialMapIndex* = enum {
+				ALBEDO
+				METALNESS
+				NORMAL
+				ROUGHNESS
+				OCCLUSION
+				EMISSION
+				HEIGHT
+				CUBEMAP
+				IRRADIANCE
+				PREFILTER
+				BRDF
+			}
+			MouseButton* = enum {
+				LEFT
+				RIGHT
+				MIDDLE
+				SIDE
+				EXTRA
+				FORWARD
+				BACK
+			}
+			CameraMode* = enum {
 				CUSTOM
 				FREE
 				ORBITAL
 				FIRST_PERSON
 				THIRD_PERSON
 			}
-			ShaderUniformDataType* = enum (int32) {
+			CameraProjection* = enum {
+				PERSPECTIVE
+				ORTHOGRAPHIC
+			}
+			ShaderUniformDataType* = enum {
 				FLOAT
 				VEC2
 				VEC3
@@ -144,7 +112,64 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				IVEC4
 				SAMPLER2D
 			}
-			ShaderLocationIndex* = enum (int32) {
+			TraceLogLevel* = enum {
+				ALL
+				TRACE
+				DEBUG
+				INFO
+				WARNING
+				ERROR
+				FATAL
+				NONE
+			}
+			Gesture* = enum (uint) {
+				TAP
+				DOUBLETAP
+				HOLD
+				DRAG
+				SWIPE_RIGHT
+				SWIPE_LEFT
+				SWIPE_UP
+				SWIPE_DOWN
+				PINCH_IN
+				PINCH_OUT
+			}
+			PixelFormat* = enum {
+				UNKNOWN
+				UNCOMPRESSED_GRAYSCALE
+				UNCOMPRESSED_GRAY_ALPHA
+				UNCOMPRESSED_R5G6B5
+				UNCOMPRESSED_R8G8B8
+				UNCOMPRESSED_R5G5B5A1
+				UNCOMPRESSED_R4G4B4A4
+				UNCOMPRESSED_R8G8B8A8
+				UNCOMPRESSED_R32
+				UNCOMPRESSED_R32G32B32
+				UNCOMPRESSED_R32G32B32A32
+				UNCOMPRESSED_R16
+				UNCOMPRESSED_R16G16B16
+				UNCOMPRESSED_R16G16B16A16
+				COMPRESSED_DXT1_RGB
+				COMPRESSED_DXT1_RGBA
+				COMPRESSED_DXT3_RGBA
+				COMPRESSED_DXT5_RGBA
+				COMPRESSED_ETC1_RGB
+				COMPRESSED_ETC2_RGB
+				COMPRESSED_ETC2_EAC_RGBA
+				COMPRESSED_PVRT_RGB
+				COMPRESSED_PVRT_RGBA
+				COMPRESSED_ASTC_4x4_RGBA
+				COMPRESSED_ASTC_8x8_RGBA
+			}
+			GamepadAxis* = enum {
+				LEFT_X
+				LEFT_Y
+				RIGHT_X
+				RIGHT_Y
+				LEFT_TRIGGER
+				RIGHT_TRIGGER
+			}
+			ShaderLocationIndex* = enum {
 				VERTEX_POSITION
 				VERTEX_TEXCOORD01
 				VERTEX_TEXCOORD02
@@ -175,7 +200,71 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				VERTEX_BONEWEIGHTS
 				BONE_MATRICES
 			}
-			BlendMode* = enum (int32) {
+			TextureFilter* = enum {
+				POINT
+				BILINEAR
+				TRILINEAR
+				ANISOTROPIC_4X
+				ANISOTROPIC_8X
+				ANISOTROPIC_16X
+			}
+			TextureWrap* = enum {
+				REPEAT
+				CLAMP
+				MIRROR_REPEAT
+				MIRROR_CLAMP
+			}
+			NPatchLayout* = enum {
+				NINE_PATCH
+				THREE_PATCH_VERTICAL
+				THREE_PATCH_HORIZONTAL
+			}
+			CubemapLayout* = enum {
+				AUTO_DETECT
+				LINE_VERTICAL
+				LINE_HORIZONTAL
+				CROSS_THREE_BY_FOUR
+				CROSS_FOUR_BY_THREE
+			}
+			GamepadButton* = enum {
+				UNKNOWN
+				LEFT_FACE_UP
+				LEFT_FACE_RIGHT
+				LEFT_FACE_DOWN
+				LEFT_FACE_LEFT
+				RIGHT_FACE_UP
+				RIGHT_FACE_RIGHT
+				RIGHT_FACE_DOWN
+				RIGHT_FACE_LEFT
+				LEFT_TRIGGER_1
+				LEFT_TRIGGER_2
+				RIGHT_TRIGGER_1
+				RIGHT_TRIGGER_2
+				MIDDLE_LEFT
+				MIDDLE
+				MIDDLE_RIGHT
+				LEFT_THUMB
+				RIGHT_THUMB
+			}
+			FontType* = enum {
+				DEFAULT
+				BITMAP
+				SDF
+			}
+			MouseCursor* = enum {
+				DEFAULT
+				ARROW
+				IBEAM
+				CROSSHAIR
+				POINTING_HAND
+				RESIZE_EW
+				RESIZE_NS
+				RESIZE_NWSE
+				RESIZE_NESW
+				RESIZE_ALL
+				NOT_ALLOWED
+			}
+			BlendMode* = enum {
 				ALPHA
 				ADDITIVE
 				MULTIPLIED
@@ -185,17 +274,7 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				CUSTOM
 				CUSTOM_SEPARATE
 			}
-			TraceLogLevel* = enum (int32) {
-				ALL
-				TRACE
-				DEBUG
-				INFO
-				WARNING
-				ERROR
-				FATAL
-				NONE
-			}
-			KeyboardKey* = enum (int32) {
+			KeyboardKey* = enum {
 				KEY_NULL
 				APOSTROPHE = 39
 				COMMA = 44
@@ -307,169 +386,72 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				VOLUME_UP = 24
 				VOLUME_DOWN
 			}
-			FontType* = enum (int32) {
-				DEFAULT
-				BITMAP
-				SDF
-			}
-			NPatchLayout* = enum (int32) {
-				NINE_PATCH
-				THREE_PATCH_VERTICAL
-				THREE_PATCH_HORIZONTAL
-			}
-			MouseButton* = enum (int32) {
-				LEFT
-				RIGHT
-				MIDDLE
-				SIDE
-				EXTRA
-				FORWARD
-				BACK
-			}
-			CubemapLayout* = enum (int32) {
-				AUTO_DETECT
-				LINE_VERTICAL
-				LINE_HORIZONTAL
-				CROSS_THREE_BY_FOUR
-				CROSS_FOUR_BY_THREE
-			}
-			CameraProjection* = enum (int32) {
-				PERSPECTIVE
-				ORTHOGRAPHIC
-			}
-			TextureWrap* = enum (int32) {
-				REPEAT
-				CLAMP
-				MIRROR_REPEAT
-				MIRROR_CLAMP
-			}
-			MaterialMapIndex* = enum (int32) {
-				ALBEDO
-				METALNESS
-				NORMAL
-				ROUGHNESS
-				OCCLUSION
-				EMISSION
-				HEIGHT
-				CUBEMAP
-				IRRADIANCE
-				PREFILTER
-				BRDF
-			}
-			MouseCursor* = enum (int32) {
-				DEFAULT
-				ARROW
-				IBEAM
-				CROSSHAIR
-				POINTING_HAND
-				RESIZE_EW
-				RESIZE_NS
-				RESIZE_NWSE
-				RESIZE_NESW
-				RESIZE_ALL
-				NOT_ALLOWED
-			}
-			GamepadAxis* = enum (int32) {
-				LEFT_X
-				LEFT_Y
-				RIGHT_X
-				RIGHT_Y
-				LEFT_TRIGGER
-				RIGHT_TRIGGER
-			}
-			GamepadButton* = enum (int32) {
-				UNKNOWN
-				LEFT_FACE_UP
-				LEFT_FACE_RIGHT
-				LEFT_FACE_DOWN
-				LEFT_FACE_LEFT
-				RIGHT_FACE_UP
-				RIGHT_FACE_RIGHT
-				RIGHT_FACE_DOWN
-				RIGHT_FACE_LEFT
-				LEFT_TRIGGER_1
-				LEFT_TRIGGER_2
-				RIGHT_TRIGGER_1
-				RIGHT_TRIGGER_2
-				MIDDLE_LEFT
-				MIDDLE
-				MIDDLE_RIGHT
-				LEFT_THUMB
-				RIGHT_THUMB
-			}
-			Gesture* = enum (uint32) {
-				TAP
-				DOUBLETAP
-				HOLD
-				DRAG
-				SWIPE_RIGHT
-				SWIPE_LEFT
-				SWIPE_UP
-				SWIPE_DOWN
-				PINCH_IN
-				PINCH_OUT
-			}
-			PixelFormat* = enum (int32) {
-				UNKNOWN
-				UNCOMPRESSED_GRAYSCALE
-				UNCOMPRESSED_GRAY_ALPHA
-				UNCOMPRESSED_R5G6B5
-				UNCOMPRESSED_R8G8B8
-				UNCOMPRESSED_R5G5B5A1
-				UNCOMPRESSED_R4G4B4A4
-				UNCOMPRESSED_R8G8B8A8
-				UNCOMPRESSED_R32
-				UNCOMPRESSED_R32G32B32
-				UNCOMPRESSED_R32G32B32A32
-				UNCOMPRESSED_R16
-				UNCOMPRESSED_R16G16B16
-				UNCOMPRESSED_R16G16B16A16
-				COMPRESSED_DXT1_RGB
-				COMPRESSED_DXT1_RGBA
-				COMPRESSED_DXT3_RGBA
-				COMPRESSED_DXT5_RGBA
-				COMPRESSED_ETC1_RGB
-				COMPRESSED_ETC2_RGB
-				COMPRESSED_ETC2_EAC_RGBA
-				COMPRESSED_PVRT_RGB
-				COMPRESSED_PVRT_RGBA
-				COMPRESSED_ASTC_4x4_RGBA
-				COMPRESSED_ASTC_8x8_RGBA
-			}
-			TextureFilter* = enum (int32) {
-				POINT
-				BILINEAR
-				TRILINEAR
-				ANISOTROPIC_4X
-				ANISOTROPIC_8X
-				ANISOTROPIC_16X
-			}
 			Quaternion* = quaternion128
-			Gestures* = []Gesture
 			Color* = [4]uint8
-			Ray* = struct {
-				position: Vector3
-				direction: Vector3
-			}
-			Texture* = struct {
-				id: uint32
-				width: int32
-				height: int32
-				mipmaps: int32
-				format: PixelFormat
-			}
+			Gestures* = []Gesture
 			NPatchInfo* = struct {
 				source: Rectangle
-				left: int32
-				top: int32
-				right: int32
-				bottom: int32
+				left: int
+				top: int
+				right: int
+				bottom: int
 				layout: NPatchLayout
 			}
-			RenderTexture* = struct {
-				id: uint32
-				texture: Texture
-				depth: Texture
+			AudioStream* = struct {
+				buffer: ^void
+				processor: ^void
+				sampleRate: uint
+				sampleSize: uint
+				channels: uint
+			}
+			VrDeviceInfo* = struct {
+				hResolution: int
+				vResolution: int
+				hScreenSize: real32
+				vScreenSize: real32
+				eyeToScreenDistance: real32
+				lensSeparationDistance: real32
+				interpupillaryDistance: real32
+				lensDistortionValues: [4]real32
+				chromaAbCorrection: [4]real32
+			}
+			FilePathList* = struct {
+				capacity: uint
+				count: uint
+				paths: ^str
+			}
+			RayCollision* = struct {
+				hit: bool
+				distance: real32
+				point: Vector3
+				normal: Vector3
+			}
+			Sound* = struct {
+				stream: AudioStream
+				frameCount: uint
+			}
+			Transform* = struct {
+				translation: Vector3
+				rotation: Quaternion
+				scale: Vector3
+			}
+			BoundingBox* = struct {
+				min: Vector3
+				max: Vector3
+			}
+			Music* = struct {
+				stream: AudioStream
+				frameCount: uint
+				looping: bool
+				ctxType: int
+				ctxData: ^void
+			}
+			Image* = struct {
+				data: ^void
+				width: int
+				height: int
+				mipmaps: int
+				format: PixelFormat
 			}
 			Camera2D* = struct {
 				offset: Vector2
@@ -477,11 +459,29 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				rotation: real32
 				zoom: real32
 			}
-			RayCollision* = struct {
-				hit: bool
-				distance: real32
-				point: Vector3
-				normal: Vector3
+			AutomationEvent* = struct {
+				frame: uint
+				_type: uint
+				params: [4]int
+			}
+			Wave* = struct {
+				frameCount: uint
+				sampleRate: uint
+				sampleSize: uint
+				channels: uint
+				data: ^void
+			}
+			Ray* = struct {
+				position: Vector3
+				direction: Vector3
+			}
+			Shader* = struct {
+				id: uint
+				locs: ^int
+			}
+			BoneInfo* = struct {
+				name: [32]uint8
+				parent: int
 			}
 			Camera3D* = struct {
 				position: Vector3
@@ -490,63 +490,64 @@ umka_add_bindings :: proc(ctx: ^umka.Context) {
 				fovy: real32
 				projection: CameraProjection
 			}
-			Transform* = struct {
-				translation: Vector3
-				rotation: Quaternion
-				scale: Vector3
+			GlyphInfo* = struct {
+				value: uint32
+				offsetX: int
+				offsetY: int
+				advanceX: int
+				image: Image
 			}
-			Image* = struct {
-				data: ^void
-				width: int32
-				height: int32
-				mipmaps: int32
+			Texture* = struct {
+				id: uint
+				width: int
+				height: int
+				mipmaps: int
 				format: PixelFormat
 			}
-			BoundingBox* = struct {
-				min: Vector3
-				max: Vector3
-			}
-			Camera* = Camera3D
-			Texture2D* = Texture
-			RenderTexture2D* = RenderTexture
 			TextureCubemap* = Texture
+			Texture2D* = Texture
+			Camera* = Camera3D
+			Font* = struct {
+				baseSize: int
+				glyphCount: int
+				glyphPadding: int
+				texture: Texture2D
+				recs: ^Rectangle
+				glyphs: ^GlyphInfo
+			}
+			ModelAnimation* = struct {
+				boneCount: int
+				frameCount: int
+				bones: ^BoneInfo
+				framePoses: ^^Transform
+				name: [32]uint8
+			}
+			AutomationEventList* = struct {
+				capacity: uint
+				count: uint
+				events: ^AutomationEvent
+			}
+			RenderTexture* = struct {
+				id: uint
+				texture: Texture
+				depth: Texture
+			}
 			MaterialMap* = struct {
 				texture: Texture2D
 				color: Color
 				value: real32
 			}
+			RenderTexture2D* = RenderTexture
 			Material* = struct {
 				shader: Shader
 				maps: ^MaterialMap
 				params: [4]real32
 			}
-			ModelAnimation* = struct {
-				boneCount: int32
-				frameCount: int32
-				bones: ^BoneInfo
-				framePoses: ^^Transform
-				name: [32]uint8
-			}
-			GlyphInfo* = struct {
-				value: uint32
-				offsetX: int32
-				offsetY: int32
-				advanceX: int32
-				image: Image
-			}
-			Font* = struct {
-				baseSize: int32
-				glyphCount: int32
-				glyphPadding: int32
-				texture: Texture2D
-				recs: ^Rectangle
-				glyphs: ^GlyphInfo
-			}
 		)
-		fn InitWindow*(width: int32, height: int32, title: str)
+		fn InitWindow*(width: int, height: int, title: str)
 		fn BeginDrawing*()
-		fn EndDrawing*()
 		fn WindowShouldClose*(): bool
+		fn EndDrawing*()
 		fn ClearBackground*(color: Color)
 	`,
 	)
