@@ -134,42 +134,10 @@ main :: proc() {
 	assert(pkg.kind == .Normal)
 	fmt.println("Read pkg")
 
-	basic_lit_types: [dynamic]string
 	for file_name, file in pkg.files {
 		fmt.println("Reading:", file_name)
 		for decl in file.decls {
-			#partial switch stmt in decl.derived_stmt {
-			case ^ast.Value_Decl:
-				if stmt.is_mutable do continue
-				if len(stmt.values) != 1 do continue
-				type_name := stmt.names[0].derived_expr.(^ast.Ident).name
-				if type_name == "_" do continue
-				#partial switch kind in stmt.values[0].derived_expr {
-				case ^ast.Proc_Lit:
-					if len(stmt.attributes) <= 0 do continue
-					attr_ident := stmt.attributes[0].elems[0].derived_expr.(^ast.Ident)
-					if attr_ident.name != "umka_fn" do continue
-				case ^ast.Proc_Group:
-					continue
-				}
-				fmt.println(type_name)
-				type := get_type(stmt.values[0].derived_expr)
-				if type_name == "InitWindow" {
-					fmt.printfln("%#v", type)
-				}
-				if type.kind == .Basic_Lit {
-					// fmt.printfln("Type name: %s\n%#v", type_name, type)
-					append(&basic_lit_types, type_name)
-				}
-				odin_types[type_name] = type^
-			case ^ast.Foreign_Block_Decl:
-				fmt.printfln(
-					"%#v",
-					stmt.body.derived_stmt.(^ast.Block_Stmt).stmts[0].derived_stmt.(^ast.Value_Decl).names[0].derived_expr.(^ast.Ident).name,
-				)
-			case:
-				continue
-			}
+			get_types(decl)
 
 
 			// if strings.contains(type_name, "ModelAnimation") do continue
@@ -196,7 +164,53 @@ main :: proc() {
 	// for field in odin_types["Some_Struct4"].fields {
 	// 	fmt.printfln("Field name: %#v\nField type: %#v", field.names[0], field.base_type^)
 	// }
+}
 
+get_types :: proc(stmt: ^ast.Stmt) {
+	#partial switch decl in stmt.derived_stmt {
+	case ^ast.Value_Decl:
+		if decl.is_mutable do return
+		if len(decl.values) != 1 do return
+		#partial switch kind in decl.values[0].derived_expr {
+		case ^ast.Proc_Lit:
+			if only_marked_fns {
+				if len(decl.attributes) <= 0 do return
+				if attr_ident, ok := decl.attributes[0].elems[0].derived_expr.(^ast.Ident); ok {
+					if attr_ident.name != "umka_fn" do return
+				} else {
+					return
+				}
+			}
+		case ^ast.Proc_Type:
+			if only_marked_fns {
+				if len(decl.attributes) <= 0 do return
+				if attr_ident, ok := decl.attributes[0].elems[0].derived_expr.(^ast.Ident); ok {
+					if attr_ident.name != "umka_fn" do return
+				} else {
+					return
+				}
+			}
+		case ^ast.Proc_Group:
+			return
+		}
+		type_name := decl.names[0].derived_expr.(^ast.Ident).name
+		if type_name == "_" do return
+		type := get_type(decl.values[0].derived_expr)
+		if type_name == "InitWindow" {
+			fmt.printfln("%#v", type)
+		}
+
+		odin_types[type_name] = type^
+	case ^ast.Foreign_Block_Decl:
+		for foreign_decl in decl.body.derived_stmt.(^ast.Block_Stmt).stmts {
+			// fmt.printfln("%#v", typeid_of(type_of(foreign_decl.derived_stmt.(^ast.Value_Decl))))
+			get_types(foreign_decl)
+		}
+	// fmt.printfln("%#v", decl.body.derived_stmt.(^ast.Block_Stmt))
+	// get_types(decl.body.derived_stmt)
+	case:
+		return
+	}
 }
 
 get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
@@ -370,12 +384,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		}
 		codegen_type.value = type.op.text
-	// fmt.printfln("%#v", codegen_type)
-	// fmt.printfln("%#v", codegen_type.left)
-	// fmt.printfln("%#v", codegen_type.right)
-	// fmt.printfln("%#v", type)
-	// fmt.printfln("%#v", type.left.derived_expr.(^ast.Basic_Lit).tok.text)
-	// fmt.printfln("%#v", type.right.derived_expr.(^ast.Basic_Lit).tok.text)
+
 	case ^ast.Comp_Lit:
 		codegen_type.kind = .Comp_Lit
 		type_name := type.type.derived_expr.(^ast.Ident).name
@@ -432,6 +441,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		if params != nil {
 			for param in params {
 				for param_name in param.names {
+					fmt.printfln("%#v", param_name.derived_expr.(^ast.Ident).name)
 					if param_type, param_type_ok := param.type.derived_expr.(^ast.Ident);
 					   param_type_ok {
 						base_type := get_type(param_type)

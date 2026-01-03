@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package umkagen
 
+only_marked_fns := true
 
 odin_to_umka := map[string]Umka_Builtin_Type {
 	"i8" = Umka_Builtin_Type{name = "int8", stack_slot = .intVal},
