@@ -1,0 +1,9 @@
+import (
+    "bindings.um"
+)
+
+fn main() {
+        bindings::BeginDrawing()
+        bindings::ClearBackground({100, 100, 100, 100})
+        bindings::EndDrawing()
+}

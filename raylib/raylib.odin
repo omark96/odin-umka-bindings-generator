@@ -106,8 +106,7 @@ when ODIN_OS == .Windows {
 	@(extra_linker_flags = "/NODEFAULTLIB:" + ("msvcrt" when RAYLIB_SHARED else "libcmt"))
 	foreign import lib {"windows/raylibdll.lib" when RAYLIB_SHARED else "windows/raylib.lib", "system:Winmm.lib", "system:Gdi32.lib", "system:User32.lib", "system:Shell32.lib"}
 } else when ODIN_OS == .Linux {
-	foreign import lib {// Note(bumbread): I'm not sure why in `linux/` folder there are
-	"linux/libraylib.so.550" when RAYLIB_SHARED else "linux/libraylib.a", "system:dl", "system:pthread"} // multiple copies of raylib.so, but since these bindings are for// particular version of the library, I better specify it. Ideally,// though, it's best specified in terms of major (.so.4)
+	foreign import lib {"linux/libraylib.so.550" when RAYLIB_SHARED else "linux/libraylib.a", "system:dl", "system:pthread"} // Note(bumbread): I'm not sure why in `linux/` folder there are// multiple copies of raylib.so, but since these bindings are for// particular version of the library, I better specify it. Ideally,// though, it's best specified in terms of major (.so.4)
 } else when ODIN_OS == .Darwin {
 	foreign import lib {"macos/libraylib.550.dylib" when RAYLIB_SHARED else "macos/libraylib.a", "system:Cocoa.framework", "system:OpenGL.framework", "system:IOKit.framework"}
 } else when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
@@ -885,6 +884,7 @@ foreign lib {
 	// Window-related functions
 	@(umka_fn)
 	InitWindow :: proc(width, height: c.int, title: cstring) --- // Initialize window and OpenGL context
+	@(umka_fn)
 	WindowShouldClose :: proc() -> bool --- // Check if application should close (KEY_ESCAPE pressed or windows close icon clicked)
 	CloseWindow :: proc() --- // Close window and unload OpenGL context
 	IsWindowReady :: proc() -> bool --- // Check if window has been initialized successfully
@@ -955,9 +955,11 @@ foreign lib {
 	IsCursorOnScreen :: proc() -> bool --- // Check if cursor is on the current screen.
 
 	// Drawing-related functions
-
+	@(umka_fn)
 	ClearBackground :: proc(color: Color) --- // Set background color (framebuffer clear color)
+	@(umka_fn)
 	BeginDrawing :: proc() --- // Setup canvas (framebuffer) to start drawing
+	@(umka_fn)
 	EndDrawing :: proc() --- // End canvas drawing and swap buffers (double buffering)
 	BeginMode2D :: proc(camera: Camera2D) --- // Initialize 2D mode with custom camera (2D)
 	EndMode2D :: proc() --- // Ends 2D mode with custom camera
@@ -1397,7 +1399,6 @@ foreign lib {
 	DrawTextureNPatch :: proc(texture: Texture2D, nPatchInfo: NPatchInfo, dest: Rectangle, origin: Vector2, rotation: f32, tint: Color) --- // Draws a texture (or part of it) that stretches or shrinks nicely
 
 	// Color/pixel related functions
-
 	@(deprecated = "Prefer col1 == col2")
 	ColorIsEqual :: proc(col1, col2: Color) --- // Check if two colors are equal
 	Fade :: proc(color: Color, alpha: f32) -> Color --- // Get color with alpha applied, alpha goes from 0.0f to 1.0f

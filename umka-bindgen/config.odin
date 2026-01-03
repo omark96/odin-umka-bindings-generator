@@ -10,6 +10,7 @@ odin_to_umka := map[string]Umka_Builtin_Type {
 	"i64" = Umka_Builtin_Type{name = "int", stack_slot = .intVal},
 	"int" = Umka_Builtin_Type{name = "int", stack_slot = .intVal},
 	"u8" = Umka_Builtin_Type{name = "uint8", stack_slot = .intVal},
+	"byte" = Umka_Builtin_Type{name = "uint8", stack_slot = .intVal},
 	"u16" = Umka_Builtin_Type{name = "uint16", stack_slot = .intVal},
 	"u32" = Umka_Builtin_Type{name = "uint32", stack_slot = .intVal},
 	"u64" = Umka_Builtin_Type{name = "uint", stack_slot = .intVal},

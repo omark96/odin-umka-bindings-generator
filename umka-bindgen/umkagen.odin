@@ -155,7 +155,7 @@ main :: proc() {
 		}
 	}
 	fmt.println("Generating bindings")
-	// generate_bindings()
+	generate_bindings()
 	// for name, type in odin_types {
 	// 	if type.kind != .Builtin && type.kind == .Proc {
 	// 		fmt.printfln("%v:\n%#v", name, type)
@@ -195,10 +195,9 @@ get_types :: proc(stmt: ^ast.Stmt) {
 		}
 		type_name := decl.names[0].derived_expr.(^ast.Ident).name
 		if type_name == "_" do return
+		if type_name == "Mesh" || type_name == "Model" do return
+		if type_name == "RAYLIB_SHARED" do fmt.printfln("%#v", decl.values[0].derived_expr)
 		type := get_type(decl.values[0].derived_expr)
-		if type_name == "InitWindow" {
-			fmt.printfln("%#v", type)
-		}
 
 		odin_types[type_name] = type^
 	case ^ast.Foreign_Block_Decl:
@@ -361,13 +360,22 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Call_Expr:
 		define_name := get_type(type.args[0].derived_expr).names[0]
 		value_type := get_type(type.args[1].derived_expr)
-		if define_name in define_overrides {
-			fmt.println(define_overrides[define_name])
-			codegen_type.value = define_overrides[define_name]
-		} else {
-			codegen_type.value = value_type.value
-		}
 		codegen_type.kind = value_type.kind
+		if define_name in define_overrides {
+			value := define_overrides[define_name]
+			if codegen_type.kind == Type_Kind.Ident {
+				append(&codegen_type.names, value.(string))
+			} else {
+				codegen_type.value = value
+			}
+		} else {
+			if codegen_type.kind == Type_Kind.Ident {
+				fmt.println("Pllllssss")
+				append(&codegen_type.names, value_type.names[0])
+			} else {
+				codegen_type.value = value_type.value
+			}
+		}
 	case ^ast.Binary_Expr:
 		// TODO! Range bit sets
 		codegen_type.kind = .Binary_Expr
@@ -388,14 +396,12 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Comp_Lit:
 		codegen_type.kind = .Comp_Lit
 		type_name := type.type.derived_expr.(^ast.Ident).name
-		fmt.printfln("Comp Lit Type Name: %s", type_name)
 		append(&codegen_type.names, type_name)
 		codegen_type.dependencies[type_name] = {}
 		for elem in type.elems {
 			elem_type := get_type(elem.derived_expr)
 			append(&codegen_type.fields, elem_type^)
 		}
-		fmt.printfln("%#v", codegen_type)
 	// unimplemented(fmt.tprintf("Comp Lit type not implemented yet \n%#v", type))
 	case ^ast.Tag_Expr:
 		codegen_type.kind = .Tag_Expr
@@ -441,26 +447,16 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		if params != nil {
 			for param in params {
 				for param_name in param.names {
-					fmt.printfln("%#v", param_name.derived_expr.(^ast.Ident).name)
-					if param_type, param_type_ok := param.type.derived_expr.(^ast.Ident);
-					   param_type_ok {
-						base_type := get_type(param_type)
-						codegen_param := Type {
-							kind      = .Param,
-							base_type = base_type,
-						}
-						append(&codegen_param.names, param_name.derived_expr.(^ast.Ident).name)
-						append(&codegen_type.params, codegen_param)
-
-						// fmt.printfln(
-						// 	"arg %d:\n\tname: %v,\n\ttype: %v",
-						// 	param_index,
-						// 	param_name.derived_expr.(^ast.Ident).name,
-						// 	param_type.name,
-						// )
+					base_type := get_type(param.type.derived_expr)
+					codegen_param := Type {
+						kind      = .Param,
+						base_type = base_type,
 					}
-					param_index += 1
+					append(&codegen_param.names, param_name.derived_expr.(^ast.Ident).name)
+					append(&codegen_type.params, codegen_param)
 				}
+				param_index += 1
+
 			}
 		}
 		// fmt.println(proc_type.type.results)
@@ -497,6 +493,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 				}
 			}
 		}
+		fmt.printfln("%##v", codegen_type)
 	case:
 		fmt.printfln("%#v", type)
 	// codegen_type.base_type = base_type.name

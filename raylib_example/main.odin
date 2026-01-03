@@ -1,8 +1,11 @@
-package raylib_example
+package example
 
+import "../raylib/bindings"
 import "../umka"
 import "base:runtime"
+import "core:fmt"
 import "core:log"
+import "vendor:raylib"
 
 warn_callback: umka.WarningCallback : proc "c" (err: ^umka.Error) {
 	context = runtime.default_context()
@@ -62,12 +65,15 @@ main :: proc() {
 
 
 	fmt.println("Adding bindings")
-	umka_add_bindings(&g_umka_ctx)
+	bindings.umka_add_bindings(&g_umka_ctx)
 
 	fmt.println("Compiling")
 	rv := umka.Compile(g_umka_ctx)
 
 	umka_assert(rv)
-
-	umka.Run(g_umka_ctx)
+	raylib.SetTargetFPS(60)
+	raylib.InitWindow(800, 600, "_glfw Umka + Raylib example")
+	for !raylib.WindowShouldClose() {
+		umka.Run(g_umka_ctx)
+	}
 }
