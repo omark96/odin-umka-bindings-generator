@@ -197,12 +197,13 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 		codegen_type.value = type.tok.text
 	case ^ast.Multi_Pointer_Type:
+		// [^]T
 		codegen_type.kind = .MultiPointer
 		base_type := get_type(type.elem.derived_expr)
 		codegen_type.base_type = base_type
 		codegen_type.dependencies = base_type.dependencies
 	case ^ast.Selector_Expr:
-		// codegen_type.kind = .Selector
+		// foo.bar
 		type_name := fmt.aprintf(
 			"%#v.%#v",
 			type.expr.derived_expr.(^ast.Ident).name,
@@ -222,6 +223,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		}
 	case ^ast.Struct_Type:
+		// foo :: struct { ... }
 		codegen_type.kind = .Struct
 		for field in type.fields.list {
 			codegen_field := Type {
@@ -251,7 +253,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		}
 	case ^ast.Array_Type:
-		// type_name := type.elem.derived_expr.(^ast.Ident).name
+		// [N]T or []T
 		base_type := get_type(type.elem.derived_expr)
 		codegen_type.base_type = base_type
 		if (type.len != nil) {
@@ -264,6 +266,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 
 	case ^ast.Enum_Type:
+		// foo :: enum { ... } or foo :: enum T { ... }
 		codegen_type.kind = .Enum
 		if type.base_type != nil {
 			codegen_type.base_type = get_type(type.base_type.derived_expr)
@@ -312,6 +315,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		}
 	case ^ast.Distinct_Type:
+		// foo :: distinct T
 		codegen_type.kind = .Distinct
 		codegen_type.base_type = get_type(type.type.derived_expr)
 	case ^ast.Proc_Type:
@@ -321,6 +325,8 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.kind = .Unimplemented
 		unimplemented(fmt.tprintf("Proc Group type not implemented yet \n%#v", type))
 	case ^ast.Call_Expr:
+		// Currently only for #config, unsure if it works for other
+		// FOO :: #config(FOO, default)
 		define_name := get_type(type.args[0].derived_expr).names[0]
 		value_type := get_type(type.args[1].derived_expr)
 		codegen_type.kind = value_type.kind
@@ -341,6 +347,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 	case ^ast.Binary_Expr:
 		// TODO! Range bit sets
+		// foo OP bar
 		codegen_type.kind = .Binary_Expr
 		codegen_type.left = get_type(type.left.derived_expr)
 		codegen_type.right = get_type(type.right.derived_expr)
@@ -357,6 +364,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.value = type.op.text
 
 	case ^ast.Comp_Lit:
+		// FOO :: T{ ... }
 		codegen_type.kind = .Comp_Lit
 		type_name := type.type.derived_expr.(^ast.Ident).name
 		append(&codegen_type.names, type_name)
@@ -367,10 +375,12 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 	// unimplemented(fmt.tprintf("Comp Lit type not implemented yet \n%#v", type))
 	case ^ast.Tag_Expr:
+		// for example #row_major in:
+		// Foo :: #row_major matrix[4,4]f32
 		codegen_type.kind = .Tag_Expr
 		append(&codegen_type.names, type.name)
 		codegen_type.base_type = get_type(type.expr.derived_expr)
-	// fmt.printfln("%#v", type)
+		fmt.printfln("%#v", codegen_type)
 	// fmt.println(size_of(raylib.Matrix))
 	// matrix_type := type.expr.derived_expr.(^ast.Matrix_Type)
 	// fmt.printfln("%#v", matrix_type)
@@ -380,6 +390,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	// )
 	// fmt.printfln("Rows: %#v", matrix_type.row_count.derived_expr.(^ast.Basic_Lit).tok.text)
 	case ^ast.Matrix_Type:
+		// matrix[cols, rows]T
 		codegen_type.kind = .Matrix
 		columns := new(Type)
 		columns.kind = .Array
@@ -404,6 +415,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Helper_Type:
 		codegen_type.kind = .Helper
 	case ^ast.Proc_Lit:
+		// foo :: proc(...) -> (...)
 		codegen_type.kind = .Proc
 		param_index := 1
 		params := type.type.params.list
@@ -456,7 +468,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 				}
 			}
 		}
-		fmt.printfln("%##v", codegen_type)
+	// fmt.printfln("%##v", codegen_type)
 	case:
 		fmt.printfln("%#v", type)
 	// codegen_type.base_type = base_type.name
