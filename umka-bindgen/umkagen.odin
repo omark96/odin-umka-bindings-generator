@@ -9,6 +9,7 @@ import "core:odin"
 import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
+import "core:slice"
 import "core:strconv"
 import "core:strings"
 import "vendor:raylib"
@@ -95,7 +96,7 @@ main :: proc() {
 	}
 	fmt.println("Init")
 	add_extras()
-	pkg, ok := parser.parse_package_from_path("./raylib")
+	pkg, ok := parser.parse_package_from_path(config.input_path)
 	// pkg, ok := parser.parse_package_from_path("./example")
 	if !ok {
 		fmt.println("error: failed to read package")
@@ -154,9 +155,8 @@ get_types :: proc(stmt: ^ast.Stmt) {
 			return
 		}
 		type_name := decl.names[0].derived_expr.(^ast.Ident).name
-		if type_name == "_" do return
-		if type_name == "Mesh" || type_name == "Model" do return
-		if type_name == "RAYLIB_SHARED" do fmt.printfln("%#v", decl.values[0].derived_expr)
+		if slice.contains(config.ignore_types, type_name) do return
+		// if type_name == "RAYLIB_SHARED" do fmt.printfln("%#v", decl.values[0].derived_expr)
 		type := get_type(decl.values[0].derived_expr)
 
 		odin_types[type_name] = type^
@@ -517,8 +517,7 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 }
 
 generate_bindings :: proc() {
-	// f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
-	f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0)
+	f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
 	defer os.close(f)
 	fmt.fprintln(
 		f,

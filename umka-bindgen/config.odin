@@ -1,15 +1,27 @@
 #+feature dynamic-literals
 package umkagen
 
+Bindings_Config :: struct {
+	input_path:   string,
+	package_name: string,
+	ignore_types: []string,
+}
+
+config := Bindings_Config {
+	input_path   = "./raylib",
+	package_name = "rl",
+	ignore_types = {"_", "Mesh", "Model"},
+}
+
 only_marked_fns := true
 
-package_import :: struct {
+Package_Import :: struct {
 	name:  string,
 	path:  string,
 	alias: string,
 }
 
-packages_to_import := []package_import {
+packages_to_import := []Package_Import {
 	{name = "raylib", path = "vendor:raylib", alias = "rl"},
 	{name = "c", path = "core:c"},
 	{name = "fmt", path = "core:fmt"},
