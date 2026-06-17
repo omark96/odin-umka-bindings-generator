@@ -45,6 +45,11 @@ Type_Kind :: enum {
 	Matrix,
 }
 
+Package :: struct {
+	types:   map[string]Type,
+	imports: [dynamic]string,
+}
+
 Type :: struct {
 	pkg:          string,
 	kind:         Type_Kind,
@@ -517,14 +522,17 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 }
 
 generate_bindings :: proc() {
-	f, _ := os.open("./raylib/bindings/bindings.odin", os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
+	output_file := fmt.aprintf("%s/%s.odin", config.output_path, config.package_name)
+	f, _ := os.open(output_file, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
 	defer os.close(f)
-	fmt.fprintln(
+
+	fmt.fprintfln(
 		f,
 		`//This file is generated. To generate it again, run:
 // odin run umka-bindgen -custom-attribute=umka_fn
-package example
+package %s
 `,
+		config.package_name,
 	)
 	for pkg in packages_to_import {
 		fmt.fprintfln(
@@ -543,6 +551,7 @@ package example
 			// 	param_type := param.base_type
 			// 	fmt.println()
 			// }
+			fmt.printfln("%#v", type)
 			fmt.fprintfln(
 				f,
 				`umka_%s :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {{
@@ -560,11 +569,20 @@ package example
 					)
 					fmt.fprintfln(f, `	%s := string(c_%s^)`, param.names[0], param.names[0])
 				} else {
+					pkg_prefix: string
+					if param.base_type.pkg != "" {
+						pkg_prefix = fmt.tprintf("%s.", param.base_type.pkg)
+					} else if t, ok := odin_types[param.base_type.names[0]];
+					   ok && t.kind == .Builtin {
+						pkg_prefix = ""
+					} else {
+						pkg_prefix = fmt.tprintf("%s.", type.pkg)
+					}
 					fmt.fprintfln(
 						f,
 						`	%s := cast(^%s%s)umka.GetParam(params, %d)`,
 						param.names[0],
-						param.base_type.pkg != "" ? fmt.aprintf("%s.", param.base_type.pkg) : "",
+						pkg_prefix,
 						param.base_type.names[0],
 						i,
 					)
@@ -675,7 +693,7 @@ package example
 	fmt.fprintln(f, `		type (`)
 	for {
 		for struct_name, type in odin_types {
-			fmt.println("Generating", struct_name)
+			// fmt.println("Generating", struct_name)
 			if type.kind == .Struct && struct_name in added_types == false {
 				unresolved_dependency := false
 				for dependency in type.dependencies {
@@ -734,12 +752,7 @@ package example
 				fmt.fprintfln(f, `			%s* = enum %s{{`, enum_name, backing_string)
 				prev_val := -1
 				for field in type.fields {
-					if field.value.(int) - prev_val > 1 {
-						fmt.fprintfln(f, `				%s = %d`, field.names[0], field.value)
-					} else {
-						fmt.fprintfln(f, `				%s`, field.names[0])
-					}
-					prev_val = field.value.(int)
+					fmt.fprintfln(f, `				%s = %d`, field.names[0], field.value)
 				}
 				fmt.fprintfln(f, `			}}`)
 				added_types[enum_name] = {}
