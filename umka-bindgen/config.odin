@@ -1,19 +1,7 @@
 #+feature dynamic-literals
 package umkagen
 
-Bindings_Config :: struct {
-	input_path:   string,
-	output_path:  string,
-	package_name: string,
-	ignore_types: []string,
-}
-
-config := Bindings_Config {
-	input_path   = "./raylib",
-	output_path  = "./raylib/bindings",
-	package_name = "raylib_bindings",
-	ignore_types = {"_", "Mesh", "Model", "VrStereoConfig"},
-}
+Bindings_Config :: struct {}
 
 only_marked_fns := true
 
@@ -54,31 +42,60 @@ odin_to_umka := map[string]Umka_Builtin_Type {
 	"c.uint" = Umka_Builtin_Type{name = "uint32", stack_slot = .ptrVal},
 }
 
-odin_types := map[string]Type {
-	"int" = Type{kind = .Builtin, names = {"int"}},
-	"bool" = Type{kind = .Builtin, names = {"bool"}},
-	"byte" = Type{kind = .Builtin, names = {"byte"}},
-	"cstring" = Type{kind = .Builtin, names = {"cstring"}},
-	"cstring16" = Type{kind = .Builtin, names = {"cstring16"}},
-	"f32" = Type{kind = .Builtin, names = {"f32"}},
-	"f64" = Type{kind = .Builtin, names = {"f64"}},
-	"i16" = Type{kind = .Builtin, names = {"i16"}},
-	"i32" = Type{kind = .Builtin, names = {"i32"}},
-	"i64" = Type{kind = .Builtin, names = {"i64"}},
-	"i8" = Type{kind = .Builtin, names = {"i8"}},
-	"int" = Type{kind = .Builtin, names = {"int"}},
-	"rawptr" = Type{kind = .Builtin, names = {"rawptr"}},
-	"rune" = Type{kind = .Builtin, names = {"rune"}},
-	"string" = Type{kind = .Builtin, names = {"string"}},
-	"string16" = Type{kind = .Builtin, names = {"string16"}},
-	"u16" = Type{kind = .Builtin, names = {"u16"}},
-	"u32" = Type{kind = .Builtin, names = {"u32"}},
-	"u64" = Type{kind = .Builtin, names = {"u64"}},
-	"u8" = Type{kind = .Builtin, names = {"u8"}},
-	"uint" = Type{kind = .Builtin, names = {"uint"}},
-	"c.int" = Type{kind = .Ident, names = {"int"}, pkg = "c"},
-	"uintptr" = Type{kind = .Builtin, names = {"uintptr"}},
-	"c.uint" = Type{kind = .Ident, names = {"uint"}, pkg = "c"},
+packages := map[string]Package {
+	"builtin" = Package {
+		types = {
+			"int" = Type{kind = .Builtin, names = {"int"}},
+			"bool" = Type{kind = .Builtin, names = {"bool"}},
+			"byte" = Type{kind = .Builtin, names = {"byte"}},
+			"cstring" = Type{kind = .Builtin, names = {"cstring"}},
+			"cstring16" = Type{kind = .Builtin, names = {"cstring16"}},
+			"f32" = Type{kind = .Builtin, names = {"f32"}},
+			"f64" = Type{kind = .Builtin, names = {"f64"}},
+			"i16" = Type{kind = .Builtin, names = {"i16"}},
+			"i32" = Type{kind = .Builtin, names = {"i32"}},
+			"i64" = Type{kind = .Builtin, names = {"i64"}},
+			"i8" = Type{kind = .Builtin, names = {"i8"}},
+			"int" = Type{kind = .Builtin, names = {"int"}},
+			"rawptr" = Type{kind = .Builtin, names = {"rawptr"}},
+			"rune" = Type{kind = .Builtin, names = {"rune"}},
+			"string" = Type{kind = .Builtin, names = {"string"}},
+			"string16" = Type{kind = .Builtin, names = {"string16"}},
+			"u16" = Type{kind = .Builtin, names = {"u16"}},
+			"u32" = Type{kind = .Builtin, names = {"u32"}},
+			"u64" = Type{kind = .Builtin, names = {"u64"}},
+			"u8" = Type{kind = .Builtin, names = {"u8"}},
+			"uint" = Type{kind = .Builtin, names = {"uint"}},
+			"uintptr" = Type{kind = .Builtin, names = {"uintptr"}},
+		},
+	},
+	"c" = Package {
+		types = {
+			"int" = Type{kind = .Ident, names = {"int"}},
+			"uint" = Type{kind = .Ident, names = {"uint"}},
+		},
+	},
+	"rl" = Package {
+		parse = true,
+		generate = true,
+		input_path = "./raylib",
+		output_path = "./raylib/bindings",
+		odin_package_name = "raylib_bindings",
+		umka_module_name = "raylib.um",
+		umka_modules_to_import = {"c.um"},
+		ignore_types = {
+			"_",
+			"Mesh",
+			"Model",
+			"VrStereoConfig",
+			"MemAllocatorProc",
+			"MemAllocator",
+			"MemFreeCstring",
+			"MemFreePtr",
+			"TextFormatAlloc",
+			"ColorFromHSV",
+		},
+	},
 }
 define_value :: union {
 	i32,
@@ -93,10 +110,11 @@ define_overrides := map[string]define_value {
 }
 
 add_extras :: proc() {
-	f32_type := new_clone(odin_types["f32"])
-	odin_types["quaternion128"] = Type {
-		kind      = .Array,
-		base_type = new_clone(odin_types["f32"]),
-		length    = 4,
+	if builtins, ok := packages["builtins"]; ok {
+		builtins.types["quarternion128"] = Type {
+			kind      = .Array,
+			base_type = new_clone(builtins.types["f32"]),
+			length    = 4,
+		}
 	}
 }

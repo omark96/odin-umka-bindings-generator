@@ -869,7 +869,6 @@ SaveFileTextCallback :: #type proc "c" (fileName: cstring, text: cstring) -> boo
 
 AudioCallback :: #type proc "c" (bufferData: rawptr, frames: c.uint)
 
-
 @(default_calling_convention = "c")
 foreign lib {
 	//------------------------------------------------------------------------------------
@@ -1701,6 +1700,7 @@ IsGestureDetected :: proc "c" (gesture: Gesture) -> bool {
 
 
 // Text formatting with variables (sprintf style)
+@(umka_fn)
 TextFormat :: proc(text: cstring, args: ..any) -> cstring {
 	@(static) buffers: [MAX_TEXTFORMAT_BUFFERS][MAX_TEXT_BUFFER_LENGTH]byte
 	@(static) index: u32
