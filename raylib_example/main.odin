@@ -76,4 +76,5 @@ main :: proc() {
 	for !raylib.WindowShouldClose() {
 		umka.Run(g_umka_ctx)
 	}
+
 }

@@ -43,6 +43,7 @@ Type_Kind :: enum {
 	Float_Lit,
 	Integer_Lit,
 	Matrix,
+	Ellipsis,
 }
 
 Package :: struct {
@@ -468,6 +469,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 					}
 					if len(result.names) == 0 {
 						odin_result_type := Type {
+							kind      = .Param,
 							base_type = base_type,
 						}
 						append(&codegen_type.returns, odin_result_type)
@@ -478,7 +480,8 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		}
 	case ^ast.Ellipsis:
-		dd(type.expr.derived_expr.(^ast.Ident))
+		codegen_type.kind = .Ellipsis
+		codegen_type.base_type = get_type(type.expr.derived_expr)
 	case:
 		fmt.printfln("%#v", type)
 	// codegen_type.base_type = base_type.name
@@ -515,12 +518,17 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 	#partial switch base_type.kind {
 	// TODO: Correct??
 	case .Pointer:
-		name = fmt.aprintf("%s%s", "^", base_type.names[0])
+		name = fmt.aprintf("^%s", umka_base_type_name(base_type.base_type^))
 	case .Array:
 		name = fmt.aprintf("[%d]%s", base_type.length, umka_base_type_name(base_type.base_type^))
 	case .MultiPointer:
 		name = fmt.aprintf("%s%s", "^", umka_base_type_name(base_type.base_type^))
+	case .Ellipsis:
+		name = fmt.aprintf("[]%s", umka_base_type_name(base_type.base_type^))
 	case:
+		if len(base_type.names) == 0 {
+			dd(base_type)
+		}
 		name = base_type.names[0]
 	}
 	return name in odin_to_umka ? odin_to_umka[name].name : name
@@ -627,9 +635,12 @@ package %s
 				odin_type := odin_pkg.types[type_name]
 				#partial switch odin_type.kind {
 				case .Distinct:
-					if umka_type, ok :=
-						   odin_to_umka[odin_base_type_name(odin_type.base_type, pkg_name)]; ok {
-						stack_slot = umka_type.stack_slot
+					if odin_type.base_type^.kind == .Ident {
+						if umka_type, ok :=
+							   odin_to_umka[odin_base_type_name(odin_type.base_type, pkg_name)];
+						   ok {
+							stack_slot = umka_type.stack_slot
+						}
 					}
 				case .Builtin:
 					if umka_type, ok := odin_to_umka[type_name]; ok {
@@ -866,8 +877,7 @@ package %s
 				fmt.fprint(f, `)`)
 			}
 			for param, i in type.params {
-				param_type :=
-					param.base_type.names[0] in odin_to_umka ? odin_to_umka[param.base_type.names[0]].name : param.base_type.names[0]
+				param_type := umka_base_type_name(param.base_type^)
 				if i < len(type.params) - 1 {
 					fmt.fprintf(f, `%s: %s, `, param.names[0], param_type)
 				} else {

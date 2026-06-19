@@ -3,7 +3,7 @@ package umkagen
 
 Bindings_Config :: struct {}
 
-only_marked_fns := true
+only_marked_fns := false
 
 Package_Import :: struct {
 	name:  string,
@@ -40,6 +40,7 @@ odin_to_umka := map[string]Umka_Builtin_Type {
 	"string" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
 	"c.int" = Umka_Builtin_Type{name = "int32", stack_slot = .ptrVal},
 	"c.uint" = Umka_Builtin_Type{name = "uint32", stack_slot = .ptrVal},
+	// "any" = Umka_Builtin_Type{name = "any", stack_slot = .ptrVal},
 }
 
 packages := map[string]Package {
@@ -67,6 +68,7 @@ packages := map[string]Package {
 			"u8" = Type{kind = .Builtin, names = {"u8"}},
 			"uint" = Type{kind = .Builtin, names = {"uint"}},
 			"uintptr" = Type{kind = .Builtin, names = {"uintptr"}},
+			// "any" = Type{kind = .Builtin, names = {"any"}},
 		},
 	},
 	"c" = Package {
@@ -94,6 +96,8 @@ packages := map[string]Package {
 			"MemFreePtr",
 			"TextFormatAlloc",
 			"ColorFromHSV",
+			"TextFormat",
+			"TraceLog",
 		},
 	},
 }
