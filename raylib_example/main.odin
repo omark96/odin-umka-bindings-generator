@@ -71,10 +71,6 @@ main :: proc() {
 	rv := umka.Compile(g_umka_ctx)
 
 	umka_assert(rv)
-	raylib.SetTargetFPS(60)
-	raylib.InitWindow(800, 600, "_glfw Umka + Raylib example")
-	for !raylib.WindowShouldClose() {
-		umka.Run(g_umka_ctx)
-	}
 
+	umka.Run(g_umka_ctx)
 }

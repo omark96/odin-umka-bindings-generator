@@ -38,6 +38,7 @@ odin_to_umka := map[string]Umka_Builtin_Type {
 	"rune" = Umka_Builtin_Type{name = "uint32", stack_slot = .intVal},
 	"cstring" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
 	"string" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
+	"quaternion128" = Umka_Builtin_Type{name = "[4]real32", stack_slot = .ptrVal},
 	"c.int" = Umka_Builtin_Type{name = "int32", stack_slot = .ptrVal},
 	"c.uint" = Umka_Builtin_Type{name = "uint32", stack_slot = .ptrVal},
 	// "any" = Umka_Builtin_Type{name = "any", stack_slot = .ptrVal},
@@ -68,9 +69,11 @@ packages := map[string]Package {
 			"u8" = Type{kind = .Builtin, names = {"u8"}},
 			"uint" = Type{kind = .Builtin, names = {"uint"}},
 			"uintptr" = Type{kind = .Builtin, names = {"uintptr"}},
+			"quaternion128" = Type{kind = .Builtin, names = {"quaternion128"}},
 			// "any" = Type{kind = .Builtin, names = {"any"}},
 		},
 	},
+	// "odin" = Package{types = {"quaternion128" = Type{kind = .Ident, names = {"quaternion128"}}}},
 	"c" = Package {
 		types = {
 			"int" = Type{kind = .Ident, names = {"int"}},
@@ -83,13 +86,15 @@ packages := map[string]Package {
 		input_path = "./raylib",
 		output_path = "./raylib/bindings",
 		odin_package_name = "raylib_bindings",
-		umka_module_name = "raylib.um",
+		umka_module_name = "rl.um",
 		umka_modules_to_import = {"c.um"},
 		ignore_types = {
 			"_",
-			"Mesh",
-			"Model",
 			"VrStereoConfig",
+			"UnloadVrStereoConfig",
+			"EndVrStereoMode",
+			"BeginVrStereoMode",
+			"LoadVrStereoConfig",
 			"MemAllocatorProc",
 			"MemAllocator",
 			"MemFreeCstring",
@@ -98,6 +103,16 @@ packages := map[string]Package {
 			"ColorFromHSV",
 			"TextFormat",
 			"TraceLog",
+			"SetTraceLogCallback",
+			"SetLoadFileDataCallback",
+			"SetSaveFileDataCallback",
+			"SetLoadFileTextCallback",
+			"SetSaveFileTextCallback",
+			"AttachAudioMixedProcessor",
+			"DetachAudioStreamProcessor",
+			"SetAudioStreamCallback",
+			"DetachAudioMixedProcessor",
+			"AttachAudioStreamProcessor",
 		},
 	},
 }
@@ -112,6 +127,8 @@ define_value :: union {
 define_overrides := map[string]define_value {
 	"RAYLIB_MAX_TEXTFORMAT_BUFFERS" = int(4),
 }
+
+keywords := []string{"true", "false"}
 
 add_extras :: proc() {
 	if builtins, ok := packages["builtins"]; ok {

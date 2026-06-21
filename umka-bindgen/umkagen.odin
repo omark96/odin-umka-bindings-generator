@@ -42,6 +42,7 @@ Type_Kind :: enum {
 	String_Lit,
 	Float_Lit,
 	Integer_Lit,
+	Bool_Lit,
 	Matrix,
 	Ellipsis,
 }
@@ -115,7 +116,7 @@ main :: proc() {
 		}
 	}
 
-	// fmt.println("Generating bindings")
+	fmt.println("Generating bindings")
 	for name, pkg in packages {
 		if pkg.generate {
 			generate_bindings(pkg, name)
@@ -153,7 +154,7 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 	#partial switch decl in stmt.derived_stmt {
 	case ^ast.Value_Decl:
 		if decl.is_mutable do return
-		if len(decl.values) != 1 do return
+		if len(decl.values) < 1 do return
 		#partial switch kind in decl.values[0].derived_expr {
 		case ^ast.Proc_Lit:
 			if only_marked_fns {
@@ -180,7 +181,17 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 		type_name := decl.names[0].derived_expr.(^ast.Ident).name
 		if slice.contains(odin_pkg.ignore_types, type_name) do return
 		// if type_name == "RAYLIB_SHARED" do fmt.printfln("%#v", decl.values[0].derived_expr)
+
 		type := get_type(decl.values[0].derived_expr)
+		if type.kind == .Ident {
+			if !(type.names[0] in packages["builtin"].types) &&
+			   !slice.contains(keywords, type.names[0]) {
+				type.dependencies[type.names[0]] = {}
+			}
+		}
+		if (type_name == "Rectangle") {
+			// dd(type_name, type)
+		}
 		// fmt.printfln("%#v", type)
 		odin_pkg.types[type_name] = type^
 		return
@@ -316,14 +327,6 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Ident:
 		codegen_type.kind = .Ident
 		append(&codegen_type.names, type.name)
-	// codegen_type.base_type = &odin_types[type.name]
-	// if type.name not_in codegen_type.dependencies {
-	// 	if !(type.name in packages["builtin"].types) {
-	// 		if type.name in packages["rl"].types {
-	// 			codegen_type.dependencies[type.name] = {}
-	// 		}
-	// 	}
-	// }
 	case ^ast.Distinct_Type:
 		// foo :: distinct T
 		codegen_type.kind = .Distinct
@@ -349,8 +352,12 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		} else {
 			if codegen_type.kind == Type_Kind.Ident {
-				fmt.println("Pllllssss")
-				append(&codegen_type.names, value_type.names[0])
+				if value_type.names[0] == "false" || value_type.names[0] == "true" {
+					codegen_type.kind = .Bool_Lit
+					codegen_type.value = value_type.names[0] == "true" ? true : false
+				} else {
+					append(&codegen_type.names, value_type.names[0])
+				}
 			} else {
 				codegen_type.value = value_type.value
 			}
@@ -402,18 +409,10 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Matrix_Type:
 		// matrix[cols, rows]T
 		codegen_type.kind = .Matrix
-		columns := new(Type)
-		columns.kind = .Array
-		columns.length, _ = strconv.parse_int(
-			type.column_count.derived_expr.(^ast.Basic_Lit).tok.text,
-		)
-		columns.base_type = new(Type)
-		columns.base_type.kind = .Array
-		columns.base_type.length, _ = strconv.parse_int(
-			type.row_count.derived_expr.(^ast.Basic_Lit).tok.text,
-		)
-		columns.base_type.base_type = get_type(type.elem.derived_expr)
-		codegen_type.base_type = columns
+		columns, _ := strconv.parse_int(type.column_count.derived_expr.(^ast.Basic_Lit).tok.text)
+		rows, _ := strconv.parse_int(type.row_count.derived_expr.(^ast.Basic_Lit).tok.text)
+		codegen_type.base_type = get_type(type.elem.derived_expr)
+		codegen_type.length = columns * rows
 	case ^ast.Bit_Set_Type:
 		codegen_type.kind = .Bit_Set
 		codegen_type.base_type = get_type(type.elem.derived_expr)
@@ -496,6 +495,13 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	// }
 	// odin_types[ident] = codegen_type
 	}
+
+	base_type := codegen_type.base_type
+	if codegen_type.base_type != nil && codegen_type.base_type.kind == .Ident {
+		if !(base_type.names[0] in packages["builtin"].types) {
+			codegen_type.dependencies[base_type.names[0]] = {}
+		}
+	}
 	return codegen_type
 }
 
@@ -527,9 +533,12 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 		name = fmt.aprintf("[]%s", umka_base_type_name(base_type.base_type^))
 	case:
 		if len(base_type.names) == 0 {
-			dd(base_type)
+			// dd(base_type)
 		}
 		name = base_type.names[0]
+		if name == "type" {
+			name = "type_"
+		}
 	}
 	return name in odin_to_umka ? odin_to_umka[name].name : name
 }
@@ -585,7 +594,6 @@ package %s
 	}
 	// if proc_type, proc_type_ok := vd.values[0].derived_expr.(^ast.Proc_Lit); proc_type_ok {
 	for proc_name, type in odin_pkg.types {
-
 		if type.kind == .Proc {
 			// fmt.println(type)
 			// for param in type.params {
@@ -593,10 +601,6 @@ package %s
 			// 	param_type := param.base_type
 			// 	fmt.println()
 			// }
-			if proc_name == "TextFormat" {
-				fmt.println(proc_name)
-				fmt.printfln("%#v", type)
-			}
 			fmt.fprintfln(
 				f,
 				`umka_%s :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {{
@@ -609,7 +613,6 @@ package %s
 				// fmt.printfln("%#v", type)
 				// fmt.printfln("%#v", param)
 				base_type_name := odin_base_type_name(param.base_type, pkg_name)
-				fmt.println(base_type_name)
 				if base_type_name == "string" {
 					fmt.fprintfln(
 						f,
@@ -632,7 +635,8 @@ package %s
 			if len(type.returns) > 0 {
 				stack_slot := StackSlot.ptrVal
 				type_name := type.returns[0].base_type.names[0]
-				odin_type := odin_pkg.types[type_name]
+				odin_type :=
+					type_name in packages["builtin"].types ? packages["builtin"].types[type_name] : odin_pkg.types[type_name]
 				#partial switch odin_type.kind {
 				case .Distinct:
 					if odin_type.base_type^.kind == .Ident {
@@ -666,7 +670,6 @@ package %s
 					return_type = "f32"
 				}
 				fmt.fprintf(f, `	res := %s.%s(`, pkg_name, proc_name)
-				fmt.printfln("%#v", type)
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
 						if odin_base_type_name(param.base_type, pkg_name) == "string" {
@@ -724,12 +727,11 @@ package %s
 	prev_unresolved_count := 0
 	fmt.fprintfln(f, `	rv := umka.AddModule(
 		ctx^,
-		"bindings.um",`)
+		"%s", `, odin_pkg.umka_module_name)
 	fmt.fprintln(f, "		`")
 	fmt.fprintln(f, `		type (`)
 	for {
 		for struct_name, type in odin_pkg.types {
-			// fmt.println("Generating", struct_name)
 			if type.kind == .Struct && struct_name in added_types == false {
 				unresolved_dependency := false
 				for dependency in type.dependencies {
@@ -778,6 +780,30 @@ package %s
 					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
 				fmt.fprintfln(f, `			%s* = [%d]%s`, array_name, type.length, type_name)
 				added_types[array_name] = {}
+			}
+		}
+		for tag_expr_name, type in odin_pkg.types {
+			if type.base_type != nil &&
+			   type.base_type.kind == .Matrix &&
+			   tag_expr_name in added_types == false {
+				matrix_name := tag_expr_name
+				// dd(matrix_name)
+				unresolved_dependency := false
+				for dependency in type.dependencies {
+					if dependency in added_types == false {
+						unresolved_dependency = true
+						unresolved_types[matrix_name] = {}
+					}
+				}
+				if unresolved_dependency == true {
+					continue
+				} else if matrix_name in unresolved_types {
+					delete_key(&unresolved_types, matrix_name)
+				}
+				type_name := type.base_type.base_type.names[0]
+				type_name = type_name in odin_to_umka ? odin_to_umka[type_name].name : type_name
+				fmt.fprintfln(f, `			%s* = [%d]%s`, matrix_name, type.base_type.length, type_name)
+				added_types[matrix_name] = {}
 			}
 		}
 		// TODO: Slices?
@@ -837,11 +863,10 @@ package %s
 				// type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
 				#partial switch type.base_type.kind {
 				case .Array:
-					type_name = fmt.aprintf(
-						"[%d]%s",
-						type.base_type.length,
-						type.base_type.base_type.names[0],
-					)
+					base_type_name := type.base_type.base_type.names[0]
+					base_type_name =
+						base_type_name in odin_to_umka ? odin_to_umka[base_type_name].name : base_type_name
+					type_name = fmt.aprintf("[%d]%s", type.base_type.length, base_type_name)
 				case .Bit_Set:
 					type_name = fmt.aprintf("[]%s", type.base_type.base_type.names[0])
 				case:
@@ -878,10 +903,11 @@ package %s
 			}
 			for param, i in type.params {
 				param_type := umka_base_type_name(param.base_type^)
+				param_name := param.names[0] != "type" ? param.names[0] : "type_"
 				if i < len(type.params) - 1 {
-					fmt.fprintf(f, `%s: %s, `, param.names[0], param_type)
+					fmt.fprintf(f, `%s: %s, `, param_name, param_type)
 				} else {
-					fmt.fprintf(f, `%s: %s)`, param.names[0], param_type)
+					fmt.fprintf(f, `%s: %s)`, param_name, param_type)
 				}
 			}
 			if len(type.returns) > 0 {
