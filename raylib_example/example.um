@@ -64,7 +64,7 @@ fn main() {
         rl::BeginMode3D(rl::Camera3D(camera))
         drawBodies()
         rl::EndMode3D()
-        rl::DrawRectangle(10, 10, 220, 70, rl::Fade(skyBlue, 0.5))
+        rl::DrawRectangle(10, 10, 220, 80, rl::Fade(skyBlue, 0.5))
         rl::DrawRectangleLines(10, 10, 220, 80, blue)
 
         rl::DrawText("First person camera default controls:", 20, 20, 10, black);

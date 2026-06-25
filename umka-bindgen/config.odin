@@ -1,6 +1,7 @@
 #+feature dynamic-literals
 package umkagen
 
+import "base:runtime"
 Bindings_Config :: struct {}
 
 only_marked_fns := false
@@ -11,13 +12,9 @@ Package_Import :: struct {
 	alias: string,
 }
 
-packages_to_import := []Package_Import {
-	{name = "raylib", path = "vendor:raylib", alias = "rl"},
-	{name = "c", path = "core:c"},
-	{name = "fmt", path = "core:fmt"},
-	{name = "runtime", path = "base:runtime"},
-	{name = "umka", path = "../../umka"},
-}
+bindings_allocator: ^runtime.Allocator
+
+odin_packages_to_import := [dynamic]Package_Import{}
 
 odin_to_umka := map[string]Umka_Builtin_Type {
 	"i8" = Umka_Builtin_Type{name = "int8", stack_slot = .intVal},
@@ -80,43 +77,8 @@ packages := map[string]Package {
 			"uint" = Type{kind = .Ident, names = {"uint"}},
 		},
 	},
-	"rl" = Package {
-		parse = true,
-		generate = true,
-		input_path = "./raylib",
-		output_path = "./raylib/bindings",
-		odin_package_name = "raylib_bindings",
-		umka_module_name = "rl.um",
-		umka_modules_to_import = {"c.um"},
-		ignore_types = {
-			"_",
-			"VrStereoConfig",
-			"UnloadVrStereoConfig",
-			"EndVrStereoMode",
-			"BeginVrStereoMode",
-			"LoadVrStereoConfig",
-			"MemAllocatorProc",
-			"MemAllocator",
-			"MemFreeCstring",
-			"MemFreePtr",
-			"TextFormatAlloc",
-			"ColorFromHSV",
-			"TextFormat",
-			"TraceLog",
-			"SetTraceLogCallback",
-			"SetLoadFileDataCallback",
-			"SetSaveFileDataCallback",
-			"SetLoadFileTextCallback",
-			"SetSaveFileTextCallback",
-			"AttachAudioMixedProcessor",
-			"DetachAudioStreamProcessor",
-			"SetAudioStreamCallback",
-			"DetachAudioMixedProcessor",
-			"AttachAudioStreamProcessor",
-		},
-	},
 }
-define_value :: union {
+Define_Value :: union {
 	i32,
 	int,
 	f32,
@@ -124,18 +86,8 @@ define_value :: union {
 	string,
 	bool,
 }
-define_overrides := map[string]define_value {
+define_overrides := map[string]Define_Value {
 	"RAYLIB_MAX_TEXTFORMAT_BUFFERS" = int(4),
 }
 
 keywords := []string{"true", "false"}
-
-add_extras :: proc() {
-	if builtins, ok := packages["builtins"]; ok {
-		builtins.types["quarternion128"] = Type {
-			kind      = .Array,
-			base_type = new_clone(builtins.types["f32"]),
-			length    = 4,
-		}
-	}
-}

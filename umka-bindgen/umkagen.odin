@@ -69,7 +69,7 @@ Type :: struct {
 	returns:      [dynamic]Type,
 	dependencies: map[string]struct{},
 	length:       int,
-	value:        define_value,
+	value:        Define_Value,
 	left:         ^Type,
 	right:        ^Type,
 }
@@ -102,14 +102,67 @@ main :: proc() {
 					fmt.eprintf("%v leaked %v bytes\n", entry.location, entry.size)
 					sum += entry.size
 				}
-				fmt.eprintf("Leaked a total of: %v bytes", sum)
-				fmt.eprintf("Size of struct: %d", size_of(Type))
+				fmt.eprintfln("Leaked a total of: %M", sum)
+				fmt.eprintfln("Size of struct: %d", size_of(Type))
 			}
 			mem.tracking_allocator_destroy(&track)
 		}
 	}
-	fmt.println("Init")
-	add_extras()
+
+	rl_package := Package {
+		parse             = true,
+		generate          = true,
+		input_path        = "./raylib",
+		output_path       = "./raylib/bindings",
+		odin_package_name = "raylib_bindings",
+		umka_module_name  = "rl.um",
+		// umka_modules_to_import = {"`c.um`"},
+		ignore_types      = {
+			"_",
+			"VrStereoConfig",
+			"UnloadVrStereoConfig",
+			"EndVrStereoMode",
+			"BeginVrStereoMode",
+			"LoadVrStereoConfig",
+			"MemAllocatorProc",
+			"MemAllocator",
+			"MemFreeCstring",
+			"MemFreePtr",
+			"TextFormatAlloc",
+			"ColorFromHSV",
+			"TextFormat",
+			"TraceLog",
+			"SetTraceLogCallback",
+			"SetLoadFileDataCallback",
+			"SetSaveFileDataCallback",
+			"SetLoadFileTextCallback",
+			"SetSaveFileTextCallback",
+			"AttachAudioMixedProcessor",
+			"DetachAudioStreamProcessor",
+			"SetAudioStreamCallback",
+			"DetachAudioMixedProcessor",
+			"AttachAudioStreamProcessor",
+		},
+	}
+
+	add_package("rl", rl_package)
+	add_odin_package_to_import(
+		Package_Import{name = "raylib", path = "vendor:raylib", alias = "rl"},
+		Package_Import{name = "c", path = "core:c"},
+		Package_Import{name = "fmt", path = "core:fmt"},
+		Package_Import{name = "runtime", path = "base:runtime"},
+		Package_Import{name = "umka", path = "../../umka"},
+	)
+	generate()
+}
+
+init_default :: proc(arena_allocator: ^runtime.Arena = nil) {
+	if arena_allocator != nil {
+
+	}
+}
+
+generate :: proc() {
 	for pkg in packages {
 		if packages[pkg].parse {
 			parse_package(&packages[pkg])
@@ -122,15 +175,14 @@ main :: proc() {
 			generate_bindings(pkg, name)
 		}
 	}
-	// fmt.printfln("%#v", odin_types["InitWindow"])
-	// for name, type in odin_types {
-	// 	if type.kind != .Builtin && type.kind == .Proc {
-	// 		fmt.printfln("%v:\n%#v", name, type)
-	// 	}
-	// }
-	// for field in odin_types["Some_Struct4"].fields {
-	// 	fmt.printfln("Field name: %#v\nField type: %#v", field.names[0], field.base_type^)
-	// }
+}
+
+add_package :: proc(name: string, pkg: Package) {
+	packages[name] = pkg
+}
+
+add_odin_package_to_import :: proc(packages: ..Package_Import) {
+	append(&odin_packages_to_import, ..packages)
 }
 
 parse_package :: proc(odin_pkg: ^Package) {
@@ -584,7 +636,7 @@ package %s
 `,
 		odin_pkg.odin_package_name,
 	)
-	for pkg in packages_to_import {
+	for pkg in odin_packages_to_import {
 		fmt.fprintfln(
 			f,
 			`import%s "%s"`,
