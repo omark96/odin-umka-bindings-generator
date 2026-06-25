@@ -106,6 +106,7 @@ generate :: proc() {
 	for name, pkg in packages {
 		if pkg.generate {
 			generate_bindings(pkg, name)
+			generate_um_file(pkg, name)
 		}
 	}
 }
@@ -707,14 +708,30 @@ package %s
 		}
 	}
 
+
+	fmt.fprintfln(
+		f,
+		`	rv := umka.AddModule(
+		ctx^,
+		"%s", 
+		#load("./%s", cstring)`,
+		odin_pkg.umka_module_name,
+		odin_pkg.umka_module_name,
+	)
+	fmt.fprintln(f, "	)")
+	fmt.fprintln(f, `}`)
+}
+
+generate_um_file :: proc(odin_pkg: Package, pkg_name: string) {
+	output_file := fmt.aprintf("%s/%s", odin_pkg.output_path, odin_pkg.umka_module_name)
+	f, _ := os.open(output_file, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
+	defer os.close(f)
+
 	unresolved_types: map[string]struct{}
 	added_types: map[string]struct{}
 	prev_unresolved_count := 0
-	fmt.fprintfln(f, `	rv := umka.AddModule(
-		ctx^,
-		"%s", `, odin_pkg.umka_module_name)
-	fmt.fprintln(f, "		`")
-	fmt.fprintln(f, `		type (`)
+
+	fmt.fprintln(f, `type (`)
 	for {
 		for struct_name, type in odin_pkg.types {
 			if type.kind == .Struct && struct_name in added_types == false {
@@ -730,7 +747,7 @@ package %s
 				} else if struct_name in unresolved_types {
 					delete_key(&unresolved_types, struct_name)
 				}
-				fmt.fprintfln(f, `			%s* = struct {{`, struct_name)
+				fmt.fprintfln(f, `	%s* = struct {{`, struct_name)
 				for field in type.fields {
 					fmt.fprintf(f, `				`)
 					for name, i in field.names {
@@ -743,7 +760,7 @@ package %s
 						}
 					}
 				}
-				fmt.fprintfln(f, `			}}`)
+				fmt.fprintfln(f, `	}}`)
 				added_types[struct_name] = {}
 			}
 		}
@@ -763,7 +780,7 @@ package %s
 				}
 				type_name :=
 					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
-				fmt.fprintfln(f, `			%s* = [%d]%s`, array_name, type.length, type_name)
+				fmt.fprintfln(f, `	%s* = [%d]%s`, array_name, type.length, type_name)
 				added_types[array_name] = {}
 			}
 		}
@@ -787,7 +804,7 @@ package %s
 				}
 				type_name := type.base_type.base_type.names[0]
 				type_name = type_name in odin_to_umka ? odin_to_umka[type_name].name : type_name
-				fmt.fprintfln(f, `			%s* = [%d]%s`, matrix_name, type.base_type.length, type_name)
+				fmt.fprintfln(f, `	%s* = [%d]%s`, matrix_name, type.base_type.length, type_name)
 				added_types[matrix_name] = {}
 			}
 		}
@@ -797,12 +814,12 @@ package %s
 
 				backing_string :=
 					type.base_type.names[0] != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type.names[0]].name) : ""
-				fmt.fprintfln(f, `			%s* = enum %s{{`, enum_name, backing_string)
+				fmt.fprintfln(f, `	%s* = enum %s{{`, enum_name, backing_string)
 				prev_val := -1
 				for field in type.fields {
-					fmt.fprintfln(f, `				%s = %d`, field.names[0], field.value)
+					fmt.fprintfln(f, `		%s = %d`, field.names[0], field.value)
 				}
-				fmt.fprintfln(f, `			}}`)
+				fmt.fprintfln(f, `	}}`)
 				added_types[enum_name] = {}
 			}
 		}
@@ -824,7 +841,7 @@ package %s
 				}
 				type_name :=
 					type.names[0] in odin_to_umka ? odin_to_umka[type.names[0]].name : type.names[0]
-				fmt.fprintfln(f, `			%s* = %s`, alias_name, type_name)
+				fmt.fprintfln(f, `	%s* = %s`, alias_name, type_name)
 				added_types[alias_name] = {}
 			}
 		}
@@ -858,7 +875,7 @@ package %s
 					fmt.println(type.base_type)
 
 				}
-				fmt.fprintfln(f, `			%s* = %s`, distinct_name, type_name)
+				fmt.fprintfln(f, `	%s* = %s`, distinct_name, type_name)
 				added_types[distinct_name] = {}
 			}
 		}
@@ -882,7 +899,7 @@ package %s
 
 	for proc_name, type in odin_pkg.types {
 		if type.kind == .Proc {
-			fmt.fprintf(f, `		fn %s*(`, proc_name)
+			fmt.fprintf(f, `fn %s*(`, proc_name)
 			if len(type.params) < 1 {
 				fmt.fprint(f, `)`)
 			}
@@ -903,9 +920,6 @@ package %s
 			fmt.fprintfln(f, "")
 		}
 	}
-	fmt.fprintln(f, "	`,")
-	fmt.fprintln(f, "	)")
-	fmt.fprintln(f, `}`)
 }
 
 
