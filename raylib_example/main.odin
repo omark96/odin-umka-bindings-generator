@@ -1,7 +1,7 @@
 package example
 
-import "../raylib/bindings"
 import "../umka"
+import "./bindings"
 import "base:runtime"
 import "core:fmt"
 import "core:log"

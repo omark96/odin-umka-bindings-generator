@@ -1399,7 +1399,7 @@ foreign lib {
 
 	// Color/pixel related functions
 	@(deprecated = "Prefer col1 == col2")
-	ColorIsEqual :: proc(col1, col2: Color) --- // Check if two colors are equal
+	ColorIsEqual :: proc(col1, col2: Color) -> bool --- // Check if two colors are equal
 	Fade :: proc(color: Color, alpha: f32) -> Color --- // Get color with alpha applied, alpha goes from 0.0f to 1.0f
 	ColorToInt :: proc(color: Color) -> c.uint --- // Get hexadecimal value for a Color (0xRRGGBBAA)
 	ColorNormalize :: proc(color: Color) -> Vector4 --- // Get Color normalized as float [0..1]
