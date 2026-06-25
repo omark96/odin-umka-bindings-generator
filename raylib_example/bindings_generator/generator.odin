@@ -6,8 +6,8 @@ main :: proc() {
 	rl_package := umkagen.Package {
 		parse             = true,
 		generate          = true,
-		input_path        = "../raylib",
-		output_path       = "../bindings",
+		input_path        = "../raylib/",
+		output_path       = "../bindings/",
 		odin_package_name = "raylib_bindings",
 		umka_module_name  = "rl.um",
 		// umka_modules_to_import = {"`c.um`"},

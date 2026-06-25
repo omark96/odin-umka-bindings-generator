@@ -9,6 +9,8 @@ import "core:odin"
 import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
+import "core:path/filepath"
+import "core:path/slashpath"
 import "core:slice"
 import "core:strconv"
 import "core:strings"
@@ -54,6 +56,7 @@ Package :: struct {
 	input_path:             string,
 	output_path:            string,
 	odin_package_name:      string,
+	odin_file_name:         string,
 	umka_module_name:       string,
 	umka_modules_to_import: []string,
 	ignore_types:           []string,
@@ -128,6 +131,13 @@ parse_package :: proc(odin_pkg: ^Package) {
 	assert(pkg.kind == .Normal)
 	fmt.println("Read pkg")
 	for file_name, file in pkg.files {
+		if file_name != "" {
+			new_path, ok := filepath.replace_separators(file_name, '/')
+			if slashpath.base(new_path) == odin_pkg.odin_file_name {
+				continue
+			}
+
+		}
 		fmt.println("Reading:", file_name)
 		for decl in file.decls {
 			get_types(decl, odin_pkg)
@@ -541,6 +551,8 @@ odin_base_type_name :: proc(base_type: ^Type, pkg_name: string) -> string {
 		pkg_prefix = fmt.tprintf("%s.", base_type.pkg)
 	} else if t, ok := packages["builtin"].types[base_type_name]; ok && t.kind == .Builtin {
 		pkg_prefix = ""
+	} else if pkg_name == "" {
+		pkg_prefix = ""
 	} else {
 		pkg_prefix = fmt.tprintf("%s.", pkg_name)
 	}
@@ -558,9 +570,18 @@ odin_base_type_name :: proc(base_type: ^Type, pkg_name: string) -> string {
 
 generate_bindings :: proc(odin_pkg: Package, pkg_name: string) {
 	// dd(odin_pkg.types["RAYLIB_SHARED"]) // @TODO: Why is this an identifier?
-	output_file := fmt.aprintf("%s/%s.odin", odin_pkg.output_path, odin_pkg.odin_package_name)
+	file_name: string
+	if odin_pkg.odin_file_name != "" {
+		file_name = fmt.aprintf("%s", odin_pkg.odin_file_name)
+	} else {
+		file_name = fmt.aprintf("%s.odin", odin_pkg.odin_package_name)
+	}
+	output_file := fmt.aprintf("%s%s", odin_pkg.output_path, file_name)
 	f, _ := os.open(output_file, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
 	defer os.close(f)
+
+	// pkg_name: string
+	pkg_name := odin_pkg.odin_package_name == pkg_name ? "" : pkg_name
 
 	fmt.fprintfln(
 		f,
@@ -655,7 +676,11 @@ package %s
 				case .real32Val:
 					return_type = "f32"
 				}
-				fmt.fprintf(f, `	res := %s.%s(`, pkg_name, proc_name)
+				if pkg_name == "" {
+					fmt.fprintf(f, `	res := %s(`, proc_name)
+				} else {
+					fmt.fprintf(f, `	res := %s.%s(`, pkg_name, proc_name)
+				}
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
 						if odin_base_type_name(param.base_type, pkg_name) == "string" {
@@ -676,7 +701,11 @@ package %s
 				ptr_string := stack_slot == .ptrVal ? "&" : ""
 				fmt.fprintfln(f, `	result.%s = cast(%s)%sres`, stack_slot, return_type, ptr_string)
 			} else {
-				fmt.fprintf(f, `	%s.%s(`, pkg_name, proc_name)
+				if pkg_name == "" {
+					fmt.fprintf(f, `	%s(`, proc_name)
+				} else {
+					fmt.fprintf(f, `	%s.%s(`, pkg_name, proc_name)
+				}
 				for param, i in type.params {
 					if i < len(type.params) - 1 {
 						if odin_base_type_name(param.base_type, pkg_name) == "string" {

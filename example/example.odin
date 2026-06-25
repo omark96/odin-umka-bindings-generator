@@ -39,10 +39,10 @@ umka_assert :: proc(rv: bool) {
 }
 
 
-// Some_Struct :: struct {
-// 	a: int,
-// 	b: bool,
-// }
+Some_Struct :: struct {
+	a: int,
+	b: bool,
+}
 
 // Some_Struct2 :: struct {
 // 	a, b: int,
@@ -64,7 +64,7 @@ umka_assert :: proc(rv: bool) {
 // 	e: [^]c.int,
 // }
 
-// Some_Array :: [4]int
+Some_Array :: [4]int
 // Some_Array2 :: [5]u8
 // Some_Slice :: []u8
 // Some_Multi_Pointer :: [^]int
@@ -101,45 +101,37 @@ Some_Enum_Bit_Set :: bit_set[Some_Enum]
 Some_U8_Enum_Bit_Set :: bit_set[Some_U8_Enum;u8]
 
 // Adds two integers
-@(umka_fn)
 add :: proc(a, b: int) -> int {
 	return a + b
 }
 
-@(umka_fn)
 some_func :: proc(a: int) -> Some_Struct {
 	return Some_Struct{1, true}
 }
 
-@(umka_fn)
 some_func2 :: proc(a: int) {
 }
 
-@(umka_fn)
 some_func_without_args :: proc() {
 
 }
 
-@(umka_fn)
 print_cstring :: proc(s: cstring) {
 	fmt.println(s)
 }
 
-@(umka_fn)
 print_string :: proc(s: string) {
 	fmt.println(s)
 }
 
-@(umka_fn)
 print_some_struct :: proc(s: Some_Struct) {
 	fmt.printfln("%#v", s)
 }
 
-@(umka_fn)
 print_some_enum_value :: proc(v: Some_Enum) {
 	fmt.printfln("%d", v)
 }
-@(umka_fn)
+
 print_some_array :: proc(a: Some_Array) {
 	fmt.printfln("%#v", a)
 }
@@ -178,10 +170,7 @@ main :: proc() {
 	rv := umka.Compile(g_umka_ctx)
 
 	umka_assert(rv)
-	for {
 
-		umka.Run(g_umka_ctx)
-		time.sleep(time.Second)
-	}
+	umka.Run(g_umka_ctx)
 
 }

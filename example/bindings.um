@@ -1,0 +1,28 @@
+type (
+	Some_Struct* = struct {
+				a: int
+				b: bool
+	}
+	Some_Array* = [4]int
+	Some_U8_Enum* = enum (uint8) {
+		A = 0
+		B = 1
+		C = 2
+		D = 3
+	}
+	Some_Enum* = enum {
+		A = 1
+		B = 2
+		C = 5
+		D = 6
+	}
+		)
+fn print_some_enum_value*(v: Some_Enum)
+fn print_cstring*(s: str)
+fn some_func2*(a: int)
+fn add*(a: int, b: int): int
+fn some_func*(a: int): Some_Struct
+fn print_some_struct*(s: Some_Struct)
+fn print_some_array*(a: Some_Array)
+fn some_func_without_args*()
+fn print_string*(s: str)
