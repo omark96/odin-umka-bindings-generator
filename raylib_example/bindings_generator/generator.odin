@@ -6,6 +6,7 @@ main :: proc() {
 	rl_package := umkagen.Package {
 		parse             = true,
 		generate          = true,
+		generate_umi      = true,
 		input_path        = "../raylib/",
 		output_path       = "../bindings/",
 		odin_package_name = "raylib_bindings",

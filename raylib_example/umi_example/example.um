@@ -1,0 +1,75 @@
+import ( 
+    "std.um"
+    "rl.um"
+)
+
+const maxColumns = 20
+
+var cubes: [maxColumns] struct {
+    height:   real
+    position: rl::Vector3
+    color:    rl::Color
+}
+
+fn rnd(min, max: real): real {return min + (max - min) * std::frand()}
+
+fn initBodies() {    
+    // Generates some random columns
+    
+    std::srand(std::time())
+    for _, cube^ in cubes {
+        cube.height   = rnd(1, 12);
+        cube.position = {rnd(-15, 15), cube.height / 2, rnd(-15, 15)}
+        cube.color    = {round(rnd(40, 150)), round(rnd(40, 60)), 40, 255}
+    }
+}
+
+fn drawBodies() {
+    // Draw ground
+    rl::um_DrawPlane({0, 0, 0}, {32, 32}, {50, 100, 50, 255})
+
+    // Draw walls
+    rl::um_DrawCube({ 16, 2.5,   0}, 1, 5, 32, { 90,  90,  90, 255})
+    rl::um_DrawCube({-16, 2.5,   0}, 1, 5, 32, { 90,  90,  90, 255})
+    rl::um_DrawCube({  0, 2.5, -16}, 32, 5, 1, {120, 120, 120, 255})
+    rl::um_DrawCube({  0, 2.5,  16}, 32, 5, 1, {120, 120, 120, 255})    
+                
+    // Draw columns
+    for _, cube in cubes {
+        rl::um_DrawCube(cube.position, 2, cube.height, 2, cube.color)
+    }
+}
+
+
+
+fn main() {
+	rl::um_InitWindow(800, 600, "_dev Umka + Raylib example")
+    rl::um_SetTargetFPS(60)
+    camera := rl::Camera {
+        position: {4, 2, 4},
+        target: {0, 1.8, 0},
+        up: {0, 1, 0},
+        fovy: 60
+    }
+
+    skyBlue := rl::Color{102, 191, 255, 255}
+    blue := rl::Color{0, 121, 241, 255}
+    darkGray := rl::Color{80, 80, 80, 255}
+    black := rl::Color{0, 0, 0, 255}
+    initBodies()
+    for !rl::um_WindowShouldClose() {
+        rl::um_ClearBackground({190, 190, 255, 255})
+        rl::um_BeginDrawing()
+        rl::um_UpdateCamera(&camera, rl::CameraMode.FIRST_PERSON)
+        rl::um_BeginMode3D(rl::Camera3D(camera))
+        drawBodies()
+        rl::um_EndMode3D()
+        rl::um_DrawRectangle(10, 10, 220, 80, rl::um_Fade(skyBlue, 0.5))
+        rl::um_DrawRectangleLines(10, 10, 220, 80, blue)
+
+        rl::um_DrawText("First person camera default controls:", 20, 20, 10, black);
+        rl::um_DrawText("- Move with keys: W, A, S, D", 40, 40, 10, darkGray);
+        rl::um_DrawText("- Mouse move to look around", 40, 60, 10, darkGray);
+        rl::um_EndDrawing()
+    }
+}

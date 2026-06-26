@@ -881,9 +881,7 @@ foreign lib {
 	//------------------------------------------------------------------------------------
 
 	// Window-related functions
-	@(umka_fn)
 	InitWindow :: proc(width, height: c.int, title: cstring) --- // Initialize window and OpenGL context
-	@(umka_fn)
 	WindowShouldClose :: proc() -> bool --- // Check if application should close (KEY_ESCAPE pressed or windows close icon clicked)
 	CloseWindow :: proc() --- // Close window and unload OpenGL context
 	IsWindowReady :: proc() -> bool --- // Check if window has been initialized successfully

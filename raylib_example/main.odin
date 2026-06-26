@@ -36,7 +36,7 @@ umka_assert :: proc(rv: bool) {
 	}
 }
 
-g_umka_ctx: umka.Context
+g_umka_ctx: ^umka.Umka
 
 
 main :: proc() {
@@ -65,7 +65,7 @@ main :: proc() {
 
 
 	fmt.println("Adding bindings")
-	bindings.umka_add_bindings(&g_umka_ctx)
+	bindings.umka_add_bindings(g_umka_ctx)
 
 	fmt.println("Compiling")
 	rv := umka.Compile(g_umka_ctx)
