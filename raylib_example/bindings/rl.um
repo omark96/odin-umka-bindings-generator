@@ -6,42 +6,39 @@ type (
 				sampleSize: uint
 				channels: uint
 	}
-	Wave* = struct {
-				frameCount: uint
-				sampleRate: uint
-				sampleSize: uint
-				channels: uint
-				data: ^void
-	}
-	ModelAnimation* = struct {
-				boneCount: int
-				frameCount: int
-				bones: ^BoneInfo
-				framePoses: ^^Transform
-				name: [32]uint8
-	}
-	AutomationEventList* = struct {
-				capacity: uint
-				count: uint
-				events: ^AutomationEvent
+	VrDeviceInfo* = struct {
+				hResolution: int
+				vResolution: int
+				hScreenSize: real32
+				vScreenSize: real32
+				eyeToScreenDistance: real32
+				lensSeparationDistance: real32
+				interpupillaryDistance: real32
+				lensDistortionValues: [4]real32
+				chromaAbCorrection: [4]real32
 	}
 	AutomationEvent* = struct {
 				frame: uint
 				type_: uint
 				params: [4]int
 	}
-	FilePathList* = struct {
+	Shader* = struct {
+				id: uint
+				locs: ^int
+	}
+	AutomationEventList* = struct {
 				capacity: uint
 				count: uint
-				paths: ^str
+				events: ^AutomationEvent
 	}
 	BoneInfo* = struct {
 				name: [32]uint8
 				parent: int
 	}
-	Shader* = struct {
-				id: uint
-				locs: ^int
+	FilePathList* = struct {
+				capacity: uint
+				count: uint
+				paths: ^str
 	}
 	Rectangle* = struct {
 				x: real32
@@ -68,17 +65,6 @@ type (
 				vaoId: uint32
 				vboId: ^uint32
 	}
-	VrDeviceInfo* = struct {
-				hResolution: int
-				vResolution: int
-				hScreenSize: real32
-				vScreenSize: real32
-				eyeToScreenDistance: real32
-				lensSeparationDistance: real32
-				interpupillaryDistance: real32
-				lensDistortionValues: [4]real32
-				chromaAbCorrection: [4]real32
-	}
 	Music* = struct {
 				stream: AudioStream
 				frameCount: uint
@@ -86,26 +72,71 @@ type (
 				ctxType: int
 				ctxData: ^void
 	}
+	Wave* = struct {
+				frameCount: uint
+				sampleRate: uint
+				sampleSize: uint
+				channels: uint
+				data: ^void
+	}
 	Sound* = struct {
 				stream: AudioStream
 				frameCount: uint
 	}
-	Vector3* = [3]real32
-	Vector2* = [2]real32
+	ModelAnimation* = struct {
+				boneCount: int
+				frameCount: int
+				bones: ^BoneInfo
+				framePoses: ^^Transform
+				name: [32]uint8
+	}
 	Vector4* = [4]real32
+	Vector2* = [2]real32
+	Vector3* = [3]real32
 	Matrix* = [16]real32
-	MouseCursor* = enum {
-		DEFAULT = 0
-		ARROW = 1
-		IBEAM = 2
-		CROSSHAIR = 3
-		POINTING_HAND = 4
-		RESIZE_EW = 5
-		RESIZE_NS = 6
-		RESIZE_NWSE = 7
-		RESIZE_NESW = 8
-		RESIZE_ALL = 9
-		NOT_ALLOWED = 10
+	PixelFormat* = enum {
+		UNKNOWN = 0
+		UNCOMPRESSED_GRAYSCALE = 1
+		UNCOMPRESSED_GRAY_ALPHA = 2
+		UNCOMPRESSED_R5G6B5 = 3
+		UNCOMPRESSED_R8G8B8 = 4
+		UNCOMPRESSED_R5G5B5A1 = 5
+		UNCOMPRESSED_R4G4B4A4 = 6
+		UNCOMPRESSED_R8G8B8A8 = 7
+		UNCOMPRESSED_R32 = 8
+		UNCOMPRESSED_R32G32B32 = 9
+		UNCOMPRESSED_R32G32B32A32 = 10
+		UNCOMPRESSED_R16 = 11
+		UNCOMPRESSED_R16G16B16 = 12
+		UNCOMPRESSED_R16G16B16A16 = 13
+		COMPRESSED_DXT1_RGB = 14
+		COMPRESSED_DXT1_RGBA = 15
+		COMPRESSED_DXT3_RGBA = 16
+		COMPRESSED_DXT5_RGBA = 17
+		COMPRESSED_ETC1_RGB = 18
+		COMPRESSED_ETC2_RGB = 19
+		COMPRESSED_ETC2_EAC_RGBA = 20
+		COMPRESSED_PVRT_RGB = 21
+		COMPRESSED_PVRT_RGBA = 22
+		COMPRESSED_ASTC_4x4_RGBA = 23
+		COMPRESSED_ASTC_8x8_RGBA = 24
+	}
+	TextureWrap* = enum {
+		REPEAT = 0
+		CLAMP = 1
+		MIRROR_REPEAT = 2
+		MIRROR_CLAMP = 3
+	}
+	CameraProjection* = enum {
+		PERSPECTIVE = 0
+		ORTHOGRAPHIC = 1
+	}
+	CubemapLayout* = enum {
+		AUTO_DETECT = 0
+		LINE_VERTICAL = 1
+		LINE_HORIZONTAL = 2
+		CROSS_THREE_BY_FOUR = 3
+		CROSS_FOUR_BY_THREE = 4
 	}
 	KeyboardKey* = enum {
 		KEY_NULL = 0
@@ -219,23 +250,35 @@ type (
 		VOLUME_UP = 24
 		VOLUME_DOWN = 25
 	}
-	MaterialMapIndex* = enum {
-		ALBEDO = 0
-		METALNESS = 1
-		NORMAL = 2
-		ROUGHNESS = 3
-		OCCLUSION = 4
-		EMISSION = 5
-		HEIGHT = 6
-		CUBEMAP = 7
-		IRRADIANCE = 8
-		PREFILTER = 9
-		BRDF = 10
+	NPatchLayout* = enum {
+		NINE_PATCH = 0
+		THREE_PATCH_VERTICAL = 1
+		THREE_PATCH_HORIZONTAL = 2
 	}
 	FontType* = enum {
 		DEFAULT = 0
 		BITMAP = 1
 		SDF = 2
+	}
+	MouseCursor* = enum {
+		DEFAULT = 0
+		ARROW = 1
+		IBEAM = 2
+		CROSSHAIR = 3
+		POINTING_HAND = 4
+		RESIZE_EW = 5
+		RESIZE_NS = 6
+		RESIZE_NWSE = 7
+		RESIZE_NESW = 8
+		RESIZE_ALL = 9
+		NOT_ALLOWED = 10
+	}
+	CameraMode* = enum {
+		CUSTOM = 0
+		FREE = 1
+		ORBITAL = 2
+		FIRST_PERSON = 3
+		THIRD_PERSON = 4
 	}
 	ShaderLocationIndex* = enum {
 		VERTEX_POSITION = 0
@@ -268,37 +311,23 @@ type (
 		VERTEX_BONEWEIGHTS = 27
 		BONE_MATRICES = 28
 	}
-	GamepadAxis* = enum {
-		LEFT_X = 0
-		LEFT_Y = 1
-		RIGHT_X = 2
-		RIGHT_Y = 3
-		LEFT_TRIGGER = 4
-		RIGHT_TRIGGER = 5
-	}
-	TraceLogLevel* = enum {
-		ALL = 0
-		TRACE = 1
-		DEBUG = 2
-		INFO = 3
-		WARNING = 4
-		ERROR = 5
-		FATAL = 6
-		NONE = 7
-	}
-	TextureFilter* = enum {
-		POINT = 0
-		BILINEAR = 1
-		TRILINEAR = 2
-		ANISOTROPIC_4X = 3
-		ANISOTROPIC_8X = 4
-		ANISOTROPIC_16X = 5
-	}
-	TextureWrap* = enum {
-		REPEAT = 0
-		CLAMP = 1
-		MIRROR_REPEAT = 2
-		MIRROR_CLAMP = 3
+	ConfigFlag* = enum {
+		VSYNC_HINT = 6
+		FULLSCREEN_MODE = 1
+		WINDOW_RESIZABLE = 2
+		WINDOW_UNDECORATED = 3
+		WINDOW_HIDDEN = 7
+		WINDOW_MINIMIZED = 9
+		WINDOW_MAXIMIZED = 10
+		WINDOW_UNFOCUSED = 11
+		WINDOW_TOPMOST = 12
+		WINDOW_ALWAYS_RUN = 8
+		WINDOW_TRANSPARENT = 4
+		WINDOW_HIGHDPI = 13
+		WINDOW_MOUSE_PASSTHROUGH = 14
+		BORDERLESS_WINDOWED_MODE = 15
+		MSAA_4X_HINT = 5
+		INTERLACED_HINT = 16
 	}
 	GamepadButton* = enum {
 		UNKNOWN = 0
@@ -330,17 +359,6 @@ type (
 		CUSTOM = 6
 		CUSTOM_SEPARATE = 7
 	}
-	CameraProjection* = enum {
-		PERSPECTIVE = 0
-		ORTHOGRAPHIC = 1
-	}
-	CubemapLayout* = enum {
-		AUTO_DETECT = 0
-		LINE_VERTICAL = 1
-		LINE_HORIZONTAL = 2
-		CROSS_THREE_BY_FOUR = 3
-		CROSS_FOUR_BY_THREE = 4
-	}
 	ShaderUniformDataType* = enum {
 		FLOAT = 0
 		VEC2 = 1
@@ -352,64 +370,36 @@ type (
 		IVEC4 = 7
 		SAMPLER2D = 8
 	}
-	PixelFormat* = enum {
-		UNKNOWN = 0
-		UNCOMPRESSED_GRAYSCALE = 1
-		UNCOMPRESSED_GRAY_ALPHA = 2
-		UNCOMPRESSED_R5G6B5 = 3
-		UNCOMPRESSED_R8G8B8 = 4
-		UNCOMPRESSED_R5G5B5A1 = 5
-		UNCOMPRESSED_R4G4B4A4 = 6
-		UNCOMPRESSED_R8G8B8A8 = 7
-		UNCOMPRESSED_R32 = 8
-		UNCOMPRESSED_R32G32B32 = 9
-		UNCOMPRESSED_R32G32B32A32 = 10
-		UNCOMPRESSED_R16 = 11
-		UNCOMPRESSED_R16G16B16 = 12
-		UNCOMPRESSED_R16G16B16A16 = 13
-		COMPRESSED_DXT1_RGB = 14
-		COMPRESSED_DXT1_RGBA = 15
-		COMPRESSED_DXT3_RGBA = 16
-		COMPRESSED_DXT5_RGBA = 17
-		COMPRESSED_ETC1_RGB = 18
-		COMPRESSED_ETC2_RGB = 19
-		COMPRESSED_ETC2_EAC_RGBA = 20
-		COMPRESSED_PVRT_RGB = 21
-		COMPRESSED_PVRT_RGBA = 22
-		COMPRESSED_ASTC_4x4_RGBA = 23
-		COMPRESSED_ASTC_8x8_RGBA = 24
+	MaterialMapIndex* = enum {
+		ALBEDO = 0
+		METALNESS = 1
+		NORMAL = 2
+		ROUGHNESS = 3
+		OCCLUSION = 4
+		EMISSION = 5
+		HEIGHT = 6
+		CUBEMAP = 7
+		IRRADIANCE = 8
+		PREFILTER = 9
+		BRDF = 10
 	}
-	NPatchLayout* = enum {
-		NINE_PATCH = 0
-		THREE_PATCH_VERTICAL = 1
-		THREE_PATCH_HORIZONTAL = 2
+	TextureFilter* = enum {
+		POINT = 0
+		BILINEAR = 1
+		TRILINEAR = 2
+		ANISOTROPIC_4X = 3
+		ANISOTROPIC_8X = 4
+		ANISOTROPIC_16X = 5
 	}
-	ConfigFlag* = enum {
-		VSYNC_HINT = 6
-		FULLSCREEN_MODE = 1
-		WINDOW_RESIZABLE = 2
-		WINDOW_UNDECORATED = 3
-		WINDOW_HIDDEN = 7
-		WINDOW_MINIMIZED = 9
-		WINDOW_MAXIMIZED = 10
-		WINDOW_UNFOCUSED = 11
-		WINDOW_TOPMOST = 12
-		WINDOW_ALWAYS_RUN = 8
-		WINDOW_TRANSPARENT = 4
-		WINDOW_HIGHDPI = 13
-		WINDOW_MOUSE_PASSTHROUGH = 14
-		BORDERLESS_WINDOWED_MODE = 15
-		MSAA_4X_HINT = 5
-		INTERLACED_HINT = 16
-	}
-	MouseButton* = enum {
-		LEFT = 0
-		RIGHT = 1
-		MIDDLE = 2
-		SIDE = 3
-		EXTRA = 4
-		FORWARD = 5
-		BACK = 6
+	TraceLogLevel* = enum {
+		ALL = 0
+		TRACE = 1
+		DEBUG = 2
+		INFO = 3
+		WARNING = 4
+		ERROR = 5
+		FATAL = 6
+		NONE = 7
 	}
 	Gesture* = enum (uint) {
 		TAP = 0
@@ -423,81 +413,27 @@ type (
 		PINCH_IN = 8
 		PINCH_OUT = 9
 	}
-	CameraMode* = enum {
-		CUSTOM = 0
-		FREE = 1
-		ORBITAL = 2
-		FIRST_PERSON = 3
-		THIRD_PERSON = 4
+	GamepadAxis* = enum {
+		LEFT_X = 0
+		LEFT_Y = 1
+		RIGHT_X = 2
+		RIGHT_Y = 3
+		LEFT_TRIGGER = 4
+		RIGHT_TRIGGER = 5
+	}
+	MouseButton* = enum {
+		LEFT = 0
+		RIGHT = 1
+		MIDDLE = 2
+		SIDE = 3
+		EXTRA = 4
+		FORWARD = 5
+		BACK = 6
 	}
 	Quaternion* = [4]real32
 	ConfigFlags* = []ConfigFlag
-	Gestures* = []Gesture
 	Color* = [4]uint8
-	Ray* = struct {
-				position: Vector3
-				direction: Vector3
-	}
-	Camera3D* = struct {
-				position: Vector3
-				target: Vector3
-				up: Vector3
-				fovy: real32
-				projection: CameraProjection
-	}
-	Material* = struct {
-				shader: Shader
-				maps: ^MaterialMap
-				params: [4]real32
-	}
-	Texture* = struct {
-				id: uint
-				width: int
-				height: int
-				mipmaps: int
-				format: PixelFormat
-	}
-	Transform* = struct {
-				translation: Vector3
-				rotation: Quaternion
-				scale: Vector3
-	}
-	RenderTexture* = struct {
-				id: uint
-				texture: Texture
-				depth: Texture
-	}
-	Image* = struct {
-				data: ^void
-				width: int
-				height: int
-				mipmaps: int
-				format: PixelFormat
-	}
-	NPatchInfo* = struct {
-				source: Rectangle
-				left: int
-				top: int
-				right: int
-				bottom: int
-				layout: NPatchLayout
-	}
-	Camera2D* = struct {
-				offset: Vector2
-				target: Vector2
-				rotation: real32
-				zoom: real32
-	}
-	BoundingBox* = struct {
-				min: Vector3
-				max: Vector3
-	}
-	RayCollision* = struct {
-				hit: bool
-				distance: real32
-				point: Vector3
-				normal: Vector3
-	}
+	Gestures* = []Gesture
 	Model* = struct {
 				transform: Matrix
 				meshCount: int
@@ -509,14 +445,61 @@ type (
 				bones: ^BoneInfo
 				bindPose: ^Transform
 	}
-	TextureCubemap* = Texture
-	RenderTexture2D* = RenderTexture
-	Camera* = Camera3D
-	Texture2D* = Texture
-	MaterialMap* = struct {
-				texture: Texture2D
-				color: Color
-				value: real32
+	Camera3D* = struct {
+				position: Vector3
+				target: Vector3
+				up: Vector3
+				fovy: real32
+				projection: CameraProjection
+	}
+	Transform* = struct {
+				translation: Vector3
+				rotation: Quaternion
+				scale: Vector3
+	}
+	Image* = struct {
+				data: ^void
+				width: int
+				height: int
+				mipmaps: int
+				format: PixelFormat
+	}
+	Texture* = struct {
+				id: uint
+				width: int
+				height: int
+				mipmaps: int
+				format: PixelFormat
+	}
+	Camera2D* = struct {
+				offset: Vector2
+				target: Vector2
+				rotation: real32
+				zoom: real32
+	}
+	RayCollision* = struct {
+				hit: bool
+				distance: real32
+				point: Vector3
+				normal: Vector3
+	}
+	Material* = struct {
+				shader: Shader
+				maps: ^MaterialMap
+				params: [4]real32
+	}
+	BoundingBox* = struct {
+				min: Vector3
+				max: Vector3
+	}
+	Ray* = struct {
+				position: Vector3
+				direction: Vector3
+	}
+	RenderTexture* = struct {
+				id: uint
+				texture: Texture
+				depth: Texture
 	}
 	GlyphInfo* = struct {
 				value: uint32
@@ -525,6 +508,18 @@ type (
 				advanceX: int
 				image: Image
 	}
+	NPatchInfo* = struct {
+				source: Rectangle
+				left: int
+				top: int
+				right: int
+				bottom: int
+				layout: NPatchLayout
+	}
+	RenderTexture2D* = RenderTexture
+	TextureCubemap* = Texture
+	Camera* = Camera3D
+	Texture2D* = Texture
 	Font* = struct {
 				baseSize: int
 				glyphCount: int
@@ -533,579 +528,583 @@ type (
 				recs: ^Rectangle
 				glyphs: ^GlyphInfo
 	}
+	MaterialMap* = struct {
+				texture: Texture2D
+				color: Color
+				value: real32
+	}
 		)
-fn TextToLower*(text: str): str
-fn TextToSnake*(text: str): str
-fn GetCameraRight*(camera: ^Camera): Vector3
-fn ExportWave*(wave: Wave, fileName: str): bool
-fn UnloadTexture*(texture: Texture2D)
-fn UnloadWaveSamples*(samples: ^real32)
-fn MemRealloc*(ptr: ^void, size: uint): ^void
-fn DrawBillboardRec*(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, size: Vector2, tint: Color)
-fn DrawModelWiresEx*(model: Model, position: Vector3, rotationAxis: Vector3, rotationAngle: real32, scale: Vector3, tint: Color)
-fn UpdateCameraPro*(camera: ^Camera, movement: Vector3, rotation: Vector3, zoom: real32)
-fn SetAudioStreamPitch*(stream: AudioStream, pitch: real32)
-fn GetScreenToWorldRay*(position: Vector2, camera: Camera): Ray
-fn GenImagePerlinNoise*(width: int, height: int, offsetX: int, offsetY: int, scale: real32): Image
-fn DrawBillboard*(camera: Camera, texture: Texture2D, position: Vector3, scale: real32, tint: Color)
-fn PlayAudioStream*(stream: AudioStream)
-fn CheckCollisionCircles*(center1: Vector2, radius1: real32, center2: Vector2, radius2: real32): bool
-fn SetMouseCursor*(cursor: MouseCursor)
-fn ResumeAudioStream*(stream: AudioStream)
-fn TextToUpper*(text: str): str
-fn DrawCircleV*(center: Vector2, radius: real32, color: Color)
-fn EncodeDataBase64*(data: ^void, dataSize: int, outputSize: ^int)
-fn DrawCylinderEx*(startPos: Vector3, endPos: Vector3, startRadius: real32, endRadius: real32, sides: int, color: Color)
-fn GetGestureDetected*(): Gestures
-fn CheckCollisionCircleRec*(center: Vector2, radius: real32, rec: Rectangle): bool
-fn IsGamepadAvailable*(gamepad: int): bool
-fn LoadDirectoryFiles*(dirPath: str): FilePathList
-fn IsFileExtension*(fileName: str, ext: str): bool
-fn IsTextureValid*(texture: Texture2D): bool
-fn DrawCapsule*(startPos: Vector3, endPos: Vector3, radius: real32, slices: int, rings: int, color: Color)
-fn TextToFloat*(text: str): real32
-fn IsGamepadButtonDown*(gamepad: int, button: GamepadButton): bool
-fn ImageDrawPixel*(dst: ^Image, posX: int, posY: int, color: Color)
-fn LoadSoundAlias*(source: Sound): Sound
-fn PauseSound*(sound: Sound)
-fn PauseMusicStream*(music: Music)
-fn BeginTextureMode*(target: RenderTexture2D)
-fn DrawTextCodepoints*(font: Font, codepoints: ^uint32, codepointCount: int, position: Vector2, fontSize: real32, spacing: real32, tint: Color)
-fn GetColor*(hexValue: uint): Color
-fn TextAppend*(text: ^uint8, append: str, position: ^int)
-fn SetMasterVolume*(volume: real32)
-fn UnloadFileData*(data: ^uint8)
-fn EnableCursor*()
-fn DrawCircle3D*(center: Vector3, radius: real32, rotationAxis: Vector3, rotationAngle: real32, color: Color)
-fn DrawSplineSegmentLinear*(p1: Vector2, p2: Vector2, thick: real32, color: Color)
-fn GenMeshKnot*(radius: real32, size: real32, radSeg: int, sides: int): Mesh
-fn ImageAlphaClear*(image: ^Image, color: Color, threshold: real32)
-fn UnloadMesh*(mesh: Mesh)
-fn GetClipboardImage*(): Image
-fn ImageColorInvert*(image: ^Image)
-fn ColorContrast*(color: Color, contrast: real32): Color
-fn IsAudioDeviceReady*(): bool
-fn GenMeshCone*(radius: real32, height: real32, slices: int): Mesh
-fn DrawModel*(model: Model, position: Vector3, scale: real32, tint: Color)
-fn EnableEventWaiting*()
-fn ImageDrawLineEx*(dst: ^Image, start: Vector2, end: Vector2, thick: int, color: Color)
-fn SaveFileData*(fileName: str, data: ^void, dataSize: int): bool
-fn CameraMoveUp*(camera: ^Camera, distance: real32)
-fn DrawSplineSegmentCatmullRom*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: real32, color: Color)
-fn DrawTriangle*(v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
-fn GetGlyphAtlasRec*(font: Font, codepoint: uint32): Rectangle
-fn CheckCollisionPointCircle*(point: Vector2, center: Vector2, radius: real32): bool
-fn EndDrawing*()
-fn MaximizeWindow*()
-fn SetShaderValue*(shader: Shader, locIndex: int, value: ^void, uniformType: ShaderUniformDataType)
-fn IsGamepadButtonPressed*(gamepad: int, button: GamepadButton): bool
-fn ClearWindowState*(flags: ConfigFlags)
-fn DrawCircleLines*(centerX: int, centerY: int, radius: real32, color: Color)
-fn ImageFormat*(image: ^Image, newFormat: PixelFormat)
-fn OpenURL*(url: str)
-fn GenImageFontAtlas*(glyphs: ^GlyphInfo, glyphRecs: ^^Rectangle, codepointCount: int, fontSize: int, padding: int, packMethod: int): Image
-fn GetClipboardText*(): str
-fn GetRandomValue*(min: int, max: int)
-fn GetFileName*(filePath: str): str
-fn ImageFromChannel*(image: Image, selectedChannel: int): Image
-fn GetGestureDragAngle*(): real32
-fn DrawPolyLinesEx*(center: Vector2, sides: int, radius: real32, rotation: real32, lineThick: real32, color: Color)
-fn DrawPixelV*(position: Vector2, color: Color)
-fn IsKeyPressedRepeat*(key: KeyboardKey): bool
-fn UnloadUTF8*(text: ^uint8)
-fn UnloadImagePalette*(colors: ^Color)
-fn UpdateAudioStream*(stream: AudioStream, data: ^void, frameCount: int)
-fn IsKeyUp*(key: KeyboardKey): bool
-fn GenMeshTangents*(mesh: ^Mesh)
-fn UnloadFileText*(text: ^uint8)
-fn SetMouseScale*(scaleX: real32, scaleY: real32)
-fn ImageDrawRectangleRec*(dst: ^Image, rec: Rectangle, color: Color)
-fn UnloadImageColors*(colors: ^Color)
-fn DirectoryExists*(dirPath: str): bool
-fn DecodeDataBase64*(data: ^void, outputSize: ^int)
-fn DrawTextEx*(font: Font, text: str, position: Vector2, fontSize: real32, spacing: real32, tint: Color)
-fn DrawEllipseLines*(centerX: int, centerY: int, radiusH: real32, radiusV: real32, color: Color)
-fn GetGestureHoldDuration*(): real32
-fn GetWindowScaleDPI*(): Vector2
-fn CheckCollisionBoxes*(box1: BoundingBox, box2: BoundingBox): bool
-fn PlayMusicStream*(music: Music)
-fn GetTouchPointCount*()
-fn ColorToHSV*(color: Color): Vector3
-fn LoadWaveFromMemory*(fileType: str, fileData: ^void, dataSize: int): Wave
-fn CheckCollisionBoxSphere*(box: BoundingBox, center: Vector3, radius: real32): bool
-fn SetSoundVolume*(sound: Sound, volume: real32)
-fn IsGamepadButtonReleased*(gamepad: int, button: GamepadButton): bool
-fn SetGesturesEnabled*(flags: Gestures)
-fn StopAudioStream*(stream: AudioStream)
-fn ImageResizeNN*(image: ^Image, newWidth: int, newHeight: int)
-fn Fade*(color: Color, alpha: real32): Color
-fn SetTextLineSpacing*(spacing: int)
-fn BeginBlendMode*(mode: BlendMode)
-fn GetGamepadAxisMovement*(gamepad: int, axis: GamepadAxis): real32
-fn DrawPlane*(centerPos: Vector3, size: Vector2, color: Color)
-fn GetRayCollisionBox*(ray: Ray, box: BoundingBox): RayCollision
-fn GenImageColor*(width: int, height: int, color: Color): Image
-fn GetRayCollisionTriangle*(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3): RayCollision
-fn DrawRectangle*(posX: int, posY: int, width: int, height: int, color: Color)
-fn ImageDrawRectangleLines*(dst: ^Image, rec: Rectangle, thick: int, color: Color)
-fn ComputeCRC32*(data: ^void, dataSize: int)
-fn DrawLineV*(startPos: Vector2, endPos: Vector2, color: Color)
-fn ColorTint*(color: Color, tint: Color): Color
-fn MeasureTextEx*(font: Font, text: str, fontSize: real32, spacing: real32): Vector2
-fn CheckCollisionPointPoly*(point: Vector2, points: ^Vector2, pointCount: int): bool
-fn BeginDrawing*()
-fn ComputeSHA1*(data: ^void, dataSize: int)
-fn TextSubtext*(text: str, position: int, length: int): str
-fn LoadFont*(fileName: str): Font
-fn GetRayCollisionQuad*(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3): RayCollision
-fn GetCameraMatrix2D*(camera: Camera2D): Matrix
-fn UpdateTextureRec*(texture: Texture2D, rec: Rectangle, pixels: ^void)
-fn TextReplace*(text: ^uint8, replace: str, by: str)
-fn GenImageWhiteNoise*(width: int, height: int, factor: real32): Image
-fn UpdateCamera*(camera: ^Camera, mode: CameraMode)
-fn UpdateSound*(sound: Sound, data: ^void, frameCount: int)
-fn GetDirectoryPath*(filePath: str): str
-fn GetMonitorCount*()
-fn StopMusicStream*(music: Music)
-fn ShowCursor*()
-fn LoadUTF8*(codepoints: ^uint32, length: int)
-fn GetMasterVolume*(): real32
-fn IsKeyPressed*(key: KeyboardKey): bool
-fn BeginMode2D*(camera: Camera2D)
-fn TextToInteger*(text: str)
-fn LoadModelAnimations*(fileName: str, animCount: ^int)
-fn IsMusicValid*(music: Music): bool
-fn BeginShaderMode*(shader: Shader)
-fn LoadWave*(fileName: str): Wave
-fn LoadShader*(vsFileName: str, fsFileName: str): Shader
-fn IsMusicStreamPlaying*(music: Music): bool
-fn StopSound*(sound: Sound)
-fn GetCameraForward*(camera: ^Camera): Vector3
-fn GetSplinePointBasis*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: real32): Vector2
-fn ResumeMusicStream*(music: Music)
-fn DrawLineBezier*(startPos: Vector2, endPos: Vector2, thick: real32, color: Color)
-fn DisableEventWaiting*()
-fn ImageDraw*(dst: ^Image, src: Image, srcRec: Rectangle, dstRec: Rectangle, tint: Color)
-fn WindowShouldClose*(): bool
-fn ImageText*(text: str, fontSize: int, color: Color): Image
-fn DrawRingLines*(center: Vector2, innerRadius: real32, outerRadius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
-fn ImageTextEx*(font: Font, text: str, fontSize: real32, spacing: real32, tint: Color): Image
-fn ExportMesh*(mesh: Mesh, fileName: str): bool
-fn SetSoundPan*(sound: Sound, pan: real32)
-fn CheckCollisionRecs*(rec1: Rectangle, rec2: Rectangle): bool
-fn UnloadAudioStream*(stream: AudioStream)
-fn GenMeshTorus*(radius: real32, size: real32, radSeg: int, sides: int): Mesh
-fn ColorToInt*(color: Color)
-fn ImageDrawText*(dst: ^Image, text: str, posX: int, posY: int, fontSize: int, color: Color)
-fn GetRenderWidth*()
-fn GenImageGradientRadial*(width: int, height: int, density: real32, inner: Color, outer: Color): Image
-fn GetSplinePointBezierCubic*(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, t: real32): Vector2
-fn DrawCircleLinesV*(center: Vector2, radius: real32, color: Color)
-fn DrawModelPointsEx*(model: Model, position: Vector3, rotationAxis: Vector3, rotationAngle: real32, scale: Vector3, tint: Color)
-fn DrawTriangleStrip3D*(points: ^Vector3, pointCount: int, color: Color)
-fn SeekMusicStream*(music: Music, position: real32)
-fn DrawRectangleLinesEx*(rec: Rectangle, lineThick: real32, color: Color)
-fn ImageDrawTriangleStrip*(dst: ^Image, points: ^Vector2, pointCount: int, color: Color)
-fn IsWindowResized*(): bool
-fn SetConfigFlags*(flags: ConfigFlags)
-fn DrawLine*(startPosX: int, startPosY: int, endPosX: int, endPosY: int, color: Color)
-fn GetCameraMatrix*(camera: Camera): Matrix
-fn DrawSphereEx*(centerPos: Vector3, radius: real32, rings: int, slices: int, color: Color)
-fn CheckCollisionCircleLine*(center: Vector2, radius: real32, p1: Vector2, p2: Vector2): bool
-fn GetShaderLocation*(shader: Shader, uniformName: str)
-fn DrawRectangleGradientV*(posX: int, posY: int, width: int, height: int, top: Color, bottom: Color)
-fn UnloadSoundAlias*(alias: Sound)
-fn GetScreenToWorld2D*(position: Vector2, camera: Camera2D): Vector2
-fn MakeDirectory*(dirPath: str)
-fn TextIsEqual*(text1: str, text2: str): bool
-fn GetGestureDragVector*(): Vector2
-fn SetAudioStreamBufferSizeDefault*(size: int)
-fn GetFileExtension*(fileName: str): str
-fn LoadDirectoryFilesEx*(basePath: str, filter: str, scanSubdirs: bool): FilePathList
-fn ImageRotate*(image: ^Image, degrees: int)
-fn SetMusicPitch*(music: Music, pitch: real32)
-fn GetGamepadAxisCount*(gamepad: int)
-fn DrawTriangleStrip*(points: ^Vector2, pointCount: int, color: Color)
-fn ImageClearBackground*(dst: ^Image, color: Color)
-fn UnloadMaterial*(material: Material)
-fn DrawRectangleRounded*(rec: Rectangle, roundness: real32, segments: int, color: Color)
-fn GetScreenHeight*()
-fn DrawSplineCatmullRom*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
-fn HideCursor*()
-fn LoadCodepoints*(text: str, count: ^int)
-fn CameraMoveForward*(camera: ^Camera, distance: real32, moveInWorldPlane: bool)
-fn PauseAudioStream*(stream: AudioStream)
-fn ImageDrawCircleV*(dst: ^Image, center: Vector2, radius: int, color: Color)
-fn TakeScreenshot*(fileName: str)
-fn GetWorldToScreen*(position: Vector3, camera: Camera): Vector2
-fn GetMusicTimePlayed*(music: Music): real32
-fn GetImageColor*(image: Image, x: int, y: int): Color
-fn DrawSplineBezierCubic*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
-fn DrawEllipse*(centerX: int, centerY: int, radiusH: real32, radiusV: real32, color: Color)
-fn LoadShaderFromMemory*(vsCode: str, fsCode: str): Shader
-fn ToggleBorderlessWindowed*()
-fn SetGamepadVibration*(gamepad: int, leftMotor: real32, rightMotor: real32, duration: real32)
-fn DrawRectangleGradientH*(posX: int, posY: int, width: int, height: int, left: Color, right: Color)
-fn ColorIsEqual*(col1: Color, col2: Color): bool
-fn UpdateModelAnimationBones*(model: Model, anim: ModelAnimation, frame: int)
-fn GetMouseY*()
-fn UnloadRenderTexture*(target: RenderTexture2D)
-fn PollInputEvents*()
-fn LoadImageColors*(image: Image)
-fn LoadModel*(fileName: str): Model
-fn CameraMoveToTarget*(camera: ^Camera, delta: real32)
-fn GenMeshHeightmap*(heightmap: Image, size: Vector3): Mesh
-fn DrawFPS*(posX: int, posY: int)
-fn DrawRectangleLines*(posX: int, posY: int, width: int, height: int, color: Color)
-fn IsWindowMinimized*(): bool
-fn ImageColorTint*(image: ^Image, color: Color)
-fn GetShapesTextureRectangle*(): Rectangle
-fn DrawCircleSector*(center: Vector2, radius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
-fn ExportMeshAsCode*(mesh: Mesh, fileName: str): bool
-fn GetTouchPointId*(index: int)
-fn DrawBoundingBox*(box: BoundingBox, color: Color)
-fn IsFileNameValid*(fileName: str): bool
-fn GetRenderHeight*()
-fn GetWorldToScreen2D*(position: Vector2, camera: Camera2D): Vector2
-fn GenMeshCube*(width: real32, height: real32, length: real32): Mesh
-fn SetWindowSize*(width: int, height: int)
-fn SetWindowFocused*()
-fn ExportFontAsCode*(font: Font, fileName: str): bool
-fn GetTouchY*()
-fn GetWindowHandle*(): ^void
-fn DrawRectangleV*(position: Vector2, size: Vector2, color: Color)
-fn EndScissorMode*()
-fn GetCameraProjectionMatrix*(camera: ^Camera, aspect: real32): Matrix
-fn ExportAutomationEventList*(list: AutomationEventList, fileName: str): bool
-fn IsKeyDown*(key: KeyboardKey): bool
-fn GetGamepadName*(gamepad: int): str
-fn GetTouchPosition*(index: int): Vector2
-fn BeginMode3D*(camera: Camera3D)
-fn SetWindowMonitor*(monitor: int)
-fn TextToCamel*(text: str): str
-fn GenMeshSphere*(radius: real32, rings: int, slices: int): Mesh
-fn IsMouseButtonReleased*(button: MouseButton): bool
-fn SetAutomationEventList*(list: ^AutomationEventList)
-fn GenImageCellular*(width: int, height: int, tileSize: int): Image
-fn DrawSplineSegmentBezierQuadratic*(p1: Vector2, c2: Vector2, p3: Vector2, thick: real32, color: Color)
-fn BeginScissorMode*(x: int, y: int, width: int, height: int)
-fn DecompressData*(compData: ^void, compDataSize: int, dataSize: ^int)
-fn WaveCrop*(wave: ^Wave, initFrame: int, finalFrame: int)
-fn GenImageChecked*(width: int, height: int, checksX: int, checksY: int, col1: Color, col2: Color): Image
-fn SetRandomSeed*(seed: uint)
-fn UnloadWave*(wave: Wave)
-fn GetMonitorPosition*(monitor: int): Vector2
-fn IsWindowHidden*(): bool
-fn GetMonitorWidth*(monitor: int)
-fn CameraRoll*(camera: ^Camera, angle: real32)
-fn DrawPoint3D*(position: Vector3, color: Color)
-fn DrawTriangleFan*(points: ^Vector2, pointCount: int, color: Color)
-fn LoadMusicStreamFromMemory*(fileType: str, data: ^void, dataSize: int): Music
-fn DrawRing*(center: Vector2, innerRadius: real32, outerRadius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
-fn GenImageGradientLinear*(width: int, height: int, direction: int, start: Color, end: Color): Image
-fn GetPixelColor*(srcPtr: ^void, format: PixelFormat): Color
-fn GetMouseWheelMoveV*(): Vector2
-fn CameraPitch*(camera: ^Camera, angle: real32, lockView: bool, rotateAroundTarget: bool, rotateUp: bool)
-fn DrawLineStrip*(points: ^Vector2, pointCount: int, color: Color)
-fn SetMusicPan*(music: Music, pan: real32)
-fn UpdateTexture*(texture: Texture2D, pixels: ^void)
-fn ToggleFullscreen*()
-fn UploadMesh*(mesh: ^Mesh, is_dynamic: bool)
-fn TextCopy*(dst: ^uint8, src: str)
-fn SetTextureFilter*(texture: Texture2D, filter: TextureFilter)
-fn LoadTextureFromImage*(image: Image): Texture2D
-fn IsAudioStreamValid*(stream: AudioStream): bool
-fn SetTextureWrap*(texture: Texture2D, wrap: TextureWrap)
-fn GetCodepointCount*(text: str)
-fn GetSplinePointBezierQuad*(p1: Vector2, c2: Vector2, p3: Vector2, t: real32): Vector2
-fn DrawCubeWires*(position: Vector3, width: real32, height: real32, length: real32, color: Color)
-fn SetWindowPosition*(x: int, y: int)
-fn GenMeshPoly*(sides: int, radius: real32): Mesh
-fn IsModelValid*(model: Model): bool
-fn DrawTextureV*(texture: Texture2D, position: Vector2, tint: Color)
-fn GenMeshPlane*(width: real32, length: real32, resX: int, resZ: int): Mesh
-fn GetTime*(): real
-fn IsCursorHidden*(): bool
-fn ImageFlipVertical*(image: ^Image)
-fn GetShapesTexture*(): Texture2D
-fn GetCameraUp*(camera: ^Camera): Vector3
-fn GetFPS*()
-fn DrawRectangleRec*(rec: Rectangle, color: Color)
-fn IsCursorOnScreen*(): bool
 fn DrawSphere*(centerPos: Vector3, radius: real32, color: Color)
-fn LoadImageAnim*(fileName: str, frames: ^int): Image
-fn SetSoundPitch*(sound: Sound, pitch: real32)
-fn GetFileNameWithoutExt*(filePath: str): str
-fn UnloadMusicStream*(music: Music)
-fn ImageAlphaMask*(image: ^Image, alphaMask: Image)
-fn SetWindowTitle*(title: str)
-fn DrawSplineSegmentBasis*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: real32, color: Color)
-fn ImageRotateCW*(image: ^Image)
-fn SetWindowOpacity*(opacity: real32)
-fn ImageColorContrast*(image: ^Image, contrast: real32)
-fn MinimizeWindow*()
-fn GetMeshBoundingBox*(mesh: Mesh): BoundingBox
-fn SetMouseOffset*(offsetX: int, offsetY: int)
-fn InitWindow*(width: int, height: int, title: str)
-fn LoadMaterials*(fileName: str, materialCount: ^int)
-fn IsKeyReleased*(key: KeyboardKey): bool
-fn FileExists*(fileName: str): bool
-fn EndShaderMode*()
-fn IsFileDropped*(): bool
-fn GetSplinePointCatmullRom*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: real32): Vector2
-fn GetCodepointPrevious*(text: str, codepointSize: ^int): uint32
-fn CheckCollisionSpheres*(center1: Vector3, radius1: real32, center2: Vector3, radius2: real32): bool
-fn GetMonitorRefreshRate*(monitor: int)
-fn DrawCubeWiresV*(position: Vector3, size: Vector3, color: Color)
-fn SetClipboardText*(text: str)
-fn DrawText*(text: str, posX: int, posY: int, fontSize: int, color: Color)
-fn LoadAutomationEventList*(fileName: str): AutomationEventList
-fn EndMode3D*()
-fn DrawModelPoints*(model: Model, position: Vector3, scale: real32, tint: Color)
-fn ImageDrawCircle*(dst: ^Image, centerX: int, centerY: int, radius: int, color: Color)
-fn ResumeSound*(sound: Sound)
-fn UnloadDroppedFiles*(files: FilePathList)
+fn ComputeSHA1*(data: ^void, dataSize: int)
+fn EndTextureMode*()
 fn SetMousePosition*(x: int, y: int)
-fn GetSplinePointLinear*(startPos: Vector2, endPos: Vector2, t: real32): Vector2
-fn CloseWindow*()
-fn GetApplicationDirectory*(): str
-fn ImageDrawTriangle*(dst: ^Image, v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
-fn IsWindowReady*(): bool
-fn GetImageAlphaBorder*(image: Image, threshold: real32): Rectangle
-fn DrawCube*(position: Vector3, width: real32, height: real32, length: real32, color: Color)
-fn LoadFileData*(fileName: str, dataSize: ^int)
-fn RestoreWindow*()
-fn LoadImagePalette*(image: Image, maxPaletteSize: int, colorCount: ^int)
-fn DrawTexture*(texture: Texture2D, posX: int, posY: int, tint: Color)
-fn DrawCircleSectorLines*(center: Vector2, radius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
-fn EndBlendMode*()
-fn DrawPixel*(posX: int, posY: int, color: Color)
-fn SetWindowMaxSize*(width: int, height: int)
-fn UnloadDirectoryFiles*(files: FilePathList)
-fn UnloadModelAnimations*(animations: ^ModelAnimation, animCount: int)
-fn ImageFlipHorizontal*(image: ^Image)
-fn ColorFromNormalized*(normalized: Vector4): Color
-fn GetWorldToScreenEx*(position: Vector3, camera: Camera, width: int, height: int): Vector2
-fn GetMonitorPhysicalHeight*(monitor: int)
-fn LoadFontEx*(fileName: str, fontSize: int, codepoints: ^uint32, codepointCount: int): Font
-fn DisableCursor*()
-fn DrawTriangleLines*(v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
-fn GenMeshHemiSphere*(radius: real32, rings: int, slices: int): Mesh
-fn ImageDrawTriangleFan*(dst: ^Image, points: ^Vector2, pointCount: int, color: Color)
-fn IsAudioStreamPlaying*(stream: AudioStream): bool
-fn ImageMipmaps*(image: ^Image)
-fn IsImageValid*(image: Image): bool
-fn ImageDrawTextEx*(dst: ^Image, font: Font, text: str, position: Vector2, fontSize: real32, spacing: real32, tint: Color)
-fn CheckCollisionPointLine*(point: Vector2, p1: Vector2, p2: Vector2, threshold: int): bool
-fn ImageDrawCircleLinesV*(dst: ^Image, center: Vector2, radius: int, color: Color)
-fn IsPathFile*(path: str): bool
-fn GetPixelDataSize*(width: int, height: int, format: PixelFormat)
-fn DrawRectangleRoundedLinesEx*(rec: Rectangle, roundness: real32, segments: int, lineThick: real32, color: Color)
-fn SetTraceLogLevel*(logLevel: TraceLogLevel)
-fn ImageFromImage*(image: Image, rec: Rectangle): Image
-fn UnloadFont*(font: Font)
-fn GetMonitorName*(monitor: int): str
-fn IsSoundValid*(sound: Sound): bool
-fn GetScreenToWorldRayEx*(position: Vector2, camera: Camera, width: int, height: int): Ray
-fn UnloadShader*(shader: Shader)
-fn DrawLineEx*(startPos: Vector2, endPos: Vector2, thick: real32, color: Color)
-fn LoadImageFromMemory*(fileType: str, fileData: ^void, dataSize: int): Image
-fn GenImageGradientSquare*(width: int, height: int, density: real32, inner: Color, outer: Color): Image
-fn ColorAlphaBlend*(dst: Color, src: Color, tint: Color): Color
-fn DrawGrid*(slices: int, spacing: real32)
-fn GenImageText*(width: int, height: int, text: str): Image
-fn GetGesturePinchVector*(): Vector2
-fn LoadImageFromTexture*(texture: Texture2D): Image
-fn ImageDrawTriangleLines*(dst: ^Image, v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
-fn GetGlyphInfo*(font: Font, codepoint: uint32): GlyphInfo
-fn LoadImageAnimFromMemory*(fileType: str, fileData: ^void, dataSize: int, frames: ^int): Image
-fn GetGesturePinchAngle*(): real32
-fn GenMeshCylinder*(radius: real32, height: real32, slices: int): Mesh
-fn ImageColorReplace*(image: ^Image, color: Color, replace: Color)
-fn TextToPascal*(text: str): str
-fn ColorAlpha*(color: Color, alpha: real32): Color
-fn GenMeshCubicmap*(cubicmap: Image, cubeSize: Vector3): Mesh
-fn GetCollisionRec*(rec1: Rectangle, rec2: Rectangle): Rectangle
-fn LoadAudioStream*(sampleRate: uint, sampleSize: uint, channels: uint): AudioStream
-fn DrawSplineSegmentBezierCubic*(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, thick: real32, color: Color)
-fn ImageToPOT*(image: ^Image, fill: Color)
-fn SetAudioStreamPan*(stream: AudioStream, pan: real32)
-fn TextFindIndex*(text: str, find: str)
-fn DrawSphereWires*(centerPos: Vector3, radius: real32, rings: int, slices: int, color: Color)
-fn ChangeDirectory*(dir: str): bool
-fn DrawTextureRec*(texture: Texture2D, source: Rectangle, position: Vector2, tint: Color)
-fn GenTextureMipmaps*(texture: ^Texture2D)
-fn GetGlyphIndex*(font: Font, codepoint: uint32)
-fn DrawTextPro*(font: Font, text: str, position: Vector2, origin: Vector2, rotation: real32, fontSize: real32, spacing: real32, tint: Color)
-fn CameraMoveRight*(camera: ^Camera, distance: real32, moveInWorldPlane: bool)
-fn SetModelMeshMaterial*(model: ^Model, meshId: int, materialId: int)
-fn GetMusicTimeLength*(music: Music): real32
-fn SetShapesTexture*(texture: Texture2D, source: Rectangle)
-fn SaveFileText*(fileName: str, text: ^uint8): bool
-fn DrawTextureEx*(texture: Texture2D, position: Vector2, rotation: real32, scale: real32, tint: Color)
-fn DrawSplineBasis*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
-fn DrawTriangle3D*(v1: Vector3, v2: Vector3, v3: Vector3, color: Color)
-fn SetMusicVolume*(music: Music, volume: real32)
+fn LoadImageAnim*(fileName: str, frames: ^int): Image
 fn UpdateModelAnimation*(model: Model, anim: ModelAnimation, frame: int)
-fn LoadDroppedFiles*(): FilePathList
-fn CheckCollisionPointTriangle*(point: Vector2, p1: Vector2, p2: Vector2, p3: Vector2): bool
-fn ImageDrawPixelV*(dst: ^Image, position: Vector2, color: Color)
-fn GetRayCollisionMesh*(ray: Ray, mesh: Mesh, transform: Matrix): RayCollision
-fn DrawMeshInstanced*(mesh: Mesh, material: Material, transforms: ^Matrix, instances: int)
-fn GetCodepoint*(text: str, codepointSize: ^int): uint32
-fn IsMaterialValid*(material: Material): bool
-fn SetWindowIcons*(images: ^Image, count: int)
-fn GetMouseDelta*(): Vector2
-fn GetRayCollisionSphere*(ray: Ray, center: Vector3, radius: real32): RayCollision
+fn DrawTextureEx*(texture: Texture2D, position: Vector2, rotation: real32, scale: real32, tint: Color)
+fn CameraMoveToTarget*(camera: ^Camera, delta: real32)
+fn GetMeshBoundingBox*(mesh: Mesh): BoundingBox
+fn ImageDrawCircleLines*(dst: ^Image, centerX: int, centerY: int, radius: int, color: Color)
 fn ImageDrawLineV*(dst: ^Image, start: Vector2, end: Vector2, color: Color)
-fn ImageDrawRectangle*(dst: ^Image, posX: int, posY: int, width: int, height: int, color: Color)
-fn WaveCopy*(wave: Wave): Wave
-fn IsMouseButtonDown*(button: MouseButton): bool
-fn ImageDrawRectangleV*(dst: ^Image, position: Vector2, size: Vector2, color: Color)
-fn ExportImage*(image: Image, fileName: str): bool
-fn LoadTexture*(fileName: str): Texture2D
-fn WaitTime*(seconds: real)
-fn GetMousePosition*(): Vector2
-fn GetFrameTime*(): real32
-fn GetFileModTime*(fileName: str)
-fn ExportDataAsCode*(data: ^void, dataSize: int, fileName: str): bool
-fn SetWindowState*(flags: ConfigFlags)
+fn GetClipboardImage*(): Image
+fn CodepointToUTF8*(codepoint: uint32, utf8Size: ^int): str
+fn GetGestureDetected*(): Gestures
+fn GetGlyphAtlasRec*(font: Font, codepoint: uint32): Rectangle
+fn UnloadImagePalette*(colors: ^Color)
+fn IsGestureDetected*(gesture: Gesture): bool
+fn CheckCollisionPointRec*(point: Vector2, rec: Rectangle): bool
+fn DrawSphereWires*(centerPos: Vector3, radius: real32, rings: int, slices: int, color: Color)
+fn LoadAutomationEventList*(fileName: str): AutomationEventList
+fn GetMusicTimeLength*(music: Music): real32
+fn ImageColorGrayscale*(image: ^Image)
+fn GetRayCollisionTriangle*(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3): RayCollision
+fn DrawFPS*(posX: int, posY: int)
+fn LoadWave*(fileName: str): Wave
+fn DrawRectangleV*(position: Vector2, size: Vector2, color: Color)
 fn LoadImageRaw*(fileName: str, width: int, height: int, format: PixelFormat, headerSize: int): Image
-fn TextJoin*(textList: ^str, count: int, delimiter: str): str
-fn ImageAlphaCrop*(image: ^Image, threshold: real32)
-fn GetScreenWidth*()
-fn GetCameraViewMatrix*(camera: ^Camera): Matrix
-fn IsGamepadButtonUp*(gamepad: int, button: GamepadButton): bool
-fn StartAutomationEventRecording*()
-fn ImageKernelConvolution*(image: ^Image, kernel: ^real32, kernelSize: int)
-fn DrawModelEx*(model: Model, position: Vector3, rotationAxis: Vector3, rotationAngle: real32, scale: Vector3, tint: Color)
+fn ImageDrawRectangleRec*(dst: ^Image, rec: Rectangle, color: Color)
+fn IsPathFile*(path: str): bool
+fn DecodeDataBase64*(data: ^void, outputSize: ^int)
+fn SetAudioStreamPan*(stream: AudioStream, pan: real32)
+fn ImageClearBackground*(dst: ^Image, color: Color)
+fn BeginTextureMode*(target: RenderTexture2D)
+fn IsModelValid*(model: Model): bool
+fn ExportImageToMemory*(image: Image, fileType: str, fileSize: ^int): ^void
+fn DrawCircleGradient*(centerX: int, centerY: int, radius: real32, inner: Color, outer: Color)
+fn GenTextureMipmaps*(texture: ^Texture2D)
+fn ComputeMD5*(data: ^void, dataSize: int)
+fn ImageDrawRectangleLines*(dst: ^Image, rec: Rectangle, thick: int, color: Color)
+fn DrawTextCodepoints*(font: Font, codepoints: ^uint32, codepointCount: int, position: Vector2, fontSize: real32, spacing: real32, tint: Color)
+fn UnloadUTF8*(text: ^uint8)
+fn LoadFileText*(fileName: str)
+fn CheckCollisionCircles*(center1: Vector2, radius1: real32, center2: Vector2, radius2: real32): bool
+fn GenMeshHeightmap*(heightmap: Image, size: Vector3): Mesh
+fn UnloadSound*(sound: Sound)
+fn GetGamepadButtonPressed*(): GamepadButton
+fn UnloadImage*(image: Image)
+fn DrawTriangleLines*(v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
+fn CheckCollisionRecs*(rec1: Rectangle, rec2: Rectangle): bool
+fn WaitTime*(seconds: real)
+fn ImageDrawRectangleV*(dst: ^Image, position: Vector2, size: Vector2, color: Color)
+fn DrawRay*(ray: Ray, color: Color)
+fn DrawSplineBezierCubic*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
+fn DrawRectangleGradientEx*(rec: Rectangle, topLeft: Color, bottomLeft: Color, topRight: Color, bottomRight: Color)
+fn DrawRectangleRec*(rec: Rectangle, color: Color)
+fn LoadDirectoryFilesEx*(basePath: str, filter: str, scanSubdirs: bool): FilePathList
+fn GetGamepadName*(gamepad: int): str
+fn LoadFontEx*(fileName: str, fontSize: int, codepoints: ^uint32, codepointCount: int): Font
+fn IsAudioStreamPlaying*(stream: AudioStream): bool
+fn UnloadWaveSamples*(samples: ^real32)
+fn SetWindowMonitor*(monitor: int)
+fn ColorContrast*(color: Color, contrast: real32): Color
+fn SetRandomSeed*(seed: uint)
+fn SetSoundPitch*(sound: Sound, pitch: real32)
+fn GenImageGradientRadial*(width: int, height: int, density: real32, inner: Color, outer: Color): Image
+fn ImageDrawLine*(dst: ^Image, startPosX: int, startPosY: int, endPosX: int, endPosY: int, color: Color)
+fn ImageFromChannel*(image: Image, selectedChannel: int): Image
+fn GetMonitorName*(monitor: int): str
+fn RestoreWindow*()
 fn UpdateMusicStream*(music: Music)
+fn IsModelAnimationValid*(model: Model, anim: ModelAnimation): bool
+fn GenMeshPoly*(sides: int, radius: real32): Mesh
+fn TextSubtext*(text: str, position: int, length: int): str
+fn ImageFlipHorizontal*(image: ^Image)
+fn ImageDrawText*(dst: ^Image, text: str, posX: int, posY: int, fontSize: int, color: Color)
+fn IsFileNameValid*(fileName: str): bool
+fn UnloadMusicStream*(music: Music)
+fn DrawRectangleGradientV*(posX: int, posY: int, width: int, height: int, top: Color, bottom: Color)
+fn SetGamepadVibration*(gamepad: int, leftMotor: real32, rightMotor: real32, duration: real32)
+fn SetClipboardText*(text: str)
+fn ImageResizeCanvas*(image: ^Image, newWidth: int, newHeight: int, offsetX: int, offsetY: int, fill: Color)
+fn DrawLine*(startPosX: int, startPosY: int, endPosX: int, endPosY: int, color: Color)
+fn GetGesturePinchVector*(): Vector2
+fn GetMouseDelta*(): Vector2
+fn ImageBlurGaussian*(image: ^Image, blurSize: int)
+fn LoadRenderTexture*(width: int, height: int): RenderTexture2D
+fn DrawCube*(position: Vector3, width: real32, height: real32, length: real32, color: Color)
+fn IsKeyPressedRepeat*(key: KeyboardKey): bool
+fn GetCameraForward*(camera: ^Camera): Vector3
+fn ImageRotateCW*(image: ^Image)
+fn CheckCollisionPointCircle*(point: Vector2, center: Vector2, radius: real32): bool
+fn IsRenderTextureValid*(target: RenderTexture2D): bool
+fn CheckCollisionCircleRec*(center: Vector2, radius: real32, rec: Rectangle): bool
+fn ColorTint*(color: Color, tint: Color): Color
+fn DrawSplineBasis*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
+fn LoadFontFromMemory*(fileType: str, fileData: ^void, dataSize: int, fontSize: int, codepoints: ^uint32, codepointCount: int): Font
+fn ExportWaveAsCode*(wave: Wave, fileName: str): bool
+fn MaximizeWindow*()
+fn TextInsert*(text: str, insert: str, position: int)
+fn LoadMaterials*(fileName: str, materialCount: ^int)
+fn WaveFormat*(wave: ^Wave, sampleRate: int, sampleSize: int, channels: int)
+fn DrawSplineSegmentBasis*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: real32, color: Color)
+fn ImageAlphaPremultiply*(image: ^Image)
+fn DrawRectangleGradientH*(posX: int, posY: int, width: int, height: int, left: Color, right: Color)
+fn ImageDrawTextEx*(dst: ^Image, font: Font, text: str, position: Vector2, fontSize: real32, spacing: real32, tint: Color)
+fn WindowShouldClose*(): bool
+fn ImageResize*(image: ^Image, newWidth: int, newHeight: int)
+fn DrawModelEx*(model: Model, position: Vector3, rotationAxis: Vector3, rotationAngle: real32, scale: Vector3, tint: Color)
+fn DrawSplineSegmentBezierQuadratic*(p1: Vector2, c2: Vector2, p3: Vector2, thick: real32, color: Color)
+fn UnloadSoundAlias*(alias: Sound)
+fn ResumeAudioStream*(stream: AudioStream)
+fn SetAutomationEventBaseFrame*(frame: int)
+fn CameraMoveUp*(camera: ^Camera, distance: real32)
+fn SetShapesTexture*(texture: Texture2D, source: Rectangle)
+fn IsWindowState*(flags: ConfigFlags): bool
+fn IsWindowHidden*(): bool
+fn LoadMusicStreamFromMemory*(fileType: str, data: ^void, dataSize: int): Music
+fn ExportMesh*(mesh: Mesh, fileName: str): bool
+fn SwapScreenBuffer*()
+fn GetImageAlphaBorder*(image: Image, threshold: real32): Rectangle
+fn IsMouseButtonPressed*(button: MouseButton): bool
+fn UnloadAudioStream*(stream: AudioStream)
+fn GetMonitorRefreshRate*(monitor: int)
+fn CheckCollisionSpheres*(center1: Vector3, radius1: real32, center2: Vector3, radius2: real32): bool
+fn ImageDraw*(dst: ^Image, src: Image, srcRec: Rectangle, dstRec: Rectangle, tint: Color)
+fn ImageColorTint*(image: ^Image, color: Color)
+fn CheckCollisionCircleLine*(center: Vector2, radius: real32, p1: Vector2, p2: Vector2): bool
+fn ExportAutomationEventList*(list: AutomationEventList, fileName: str): bool
+fn SetMusicVolume*(music: Music, volume: real32)
+fn ComputeCRC32*(data: ^void, dataSize: int)
+fn DrawPlane*(centerPos: Vector3, size: Vector2, color: Color)
+fn LoadImage*(fileName: str): Image
+fn UnloadFontData*(glyphs: ^GlyphInfo, glyphCount: int)
+fn GetFPS*()
+fn StopSound*(sound: Sound)
+fn OpenURL*(url: str)
+fn SetWindowFocused*()
+fn LoadDroppedFiles*(): FilePathList
+fn GetFileLength*(fileName: str)
+fn GetTouchPointId*(index: int)
+fn DrawCylinderWiresEx*(startPos: Vector3, endPos: Vector3, startRadius: real32, endRadius: real32, sides: int, color: Color)
+fn ColorBrightness*(color: Color, factor: real32): Color
+fn GetRayCollisionMesh*(ray: Ray, mesh: Mesh, transform: Matrix): RayCollision
+fn ColorAlpha*(color: Color, alpha: real32): Color
+fn ImageDrawTriangleLines*(dst: ^Image, v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
+fn MeasureText*(text: str, fontSize: int)
+fn DrawCircle*(centerX: int, centerY: int, radius: real32, color: Color)
+fn IsWindowReady*(): bool
+fn Fade*(color: Color, alpha: real32): Color
+fn IsGamepadButtonPressed*(gamepad: int, button: GamepadButton): bool
+fn DrawSplineCatmullRom*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
+fn IsWindowFocused*(): bool
+fn GetScreenHeight*()
+fn LoadCodepoints*(text: str, count: ^int)
+fn DrawBoundingBox*(box: BoundingBox, color: Color)
+fn SetAudioStreamVolume*(stream: AudioStream, volume: real32)
+fn GetCurrentMonitor*()
+fn ImageDrawPixel*(dst: ^Image, posX: int, posY: int, color: Color)
+fn GetCameraUp*(camera: ^Camera): Vector3
+fn IsGamepadAvailable*(gamepad: int): bool
+fn DrawModelWires*(model: Model, position: Vector3, scale: real32, tint: Color)
+fn GetModelBoundingBox*(model: Model): BoundingBox
+fn ImageAlphaCrop*(image: ^Image, threshold: real32)
+fn GetMouseY*()
+fn ImageMipmaps*(image: ^Image)
+fn ImageDrawTriangle*(dst: ^Image, v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
+fn LoadWaveSamples*(wave: Wave)
+fn UnloadFont*(font: Font)
+fn StartAutomationEventRecording*()
+fn DrawSplineBezierQuadratic*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
+fn DrawEllipse*(centerX: int, centerY: int, radiusH: real32, radiusV: real32, color: Color)
+fn GetFileNameWithoutExt*(filePath: str): str
+fn IsGamepadButtonDown*(gamepad: int, button: GamepadButton): bool
+fn MemRealloc*(ptr: ^void, size: uint): ^void
+fn SetShaderValue*(shader: Shader, locIndex: int, value: ^void, uniformType: ShaderUniformDataType)
+fn GetTouchY*()
+fn GetFontDefault*(): Font
+fn SetTextLineSpacing*(spacing: int)
+fn GetCameraViewMatrix*(camera: ^Camera): Matrix
+fn ImageDrawLineEx*(dst: ^Image, start: Vector2, end: Vector2, thick: int, color: Color)
+fn SetWindowIcon*(image: Image)
+fn SetMusicPitch*(music: Music, pitch: real32)
+fn LoadTextureCubemap*(image: Image, layout: CubemapLayout): TextureCubemap
+fn GetClipboardText*(): str
+fn ImageText*(text: str, fontSize: int, color: Color): Image
+fn LoadTextureFromImage*(image: Image): Texture2D
+fn LoadDirectoryFiles*(dirPath: str): FilePathList
+fn LoadImagePalette*(image: Image, maxPaletteSize: int, colorCount: ^int)
+fn UpdateCameraPro*(camera: ^Camera, movement: Vector3, rotation: Vector3, zoom: real32)
+fn UnloadMaterial*(material: Material)
+fn GetTouchPointCount*()
+fn UnloadWave*(wave: Wave)
+fn TextJoin*(textList: ^str, count: int, delimiter: str): str
+fn IsFileExtension*(fileName: str, ext: str): bool
+fn ImageAlphaClear*(image: ^Image, color: Color, threshold: real32)
+fn MeasureTextEx*(font: Font, text: str, fontSize: real32, spacing: real32): Vector2
+fn UnloadModel*(model: Model)
+fn GetKeyPressed*(): KeyboardKey
+fn DrawTextEx*(font: Font, text: str, position: Vector2, fontSize: real32, spacing: real32, tint: Color)
+fn IsImageValid*(image: Image): bool
+fn ImageResizeNN*(image: ^Image, newWidth: int, newHeight: int)
+fn IsCursorOnScreen*(): bool
+fn MakeDirectory*(dirPath: str)
+fn EnableCursor*()
+fn ImageFromImage*(image: Image, rec: Rectangle): Image
+fn GenMeshCubicmap*(cubicmap: Image, cubeSize: Vector3): Mesh
+fn UnloadRandomSequence*(sequence: ^int)
+fn GetWorldToScreenEx*(position: Vector3, camera: Camera, width: int, height: int): Vector2
+fn DrawCircleLinesV*(center: Vector2, radius: real32, color: Color)
+fn LoadMaterialDefault*(): Material
+fn CameraMoveForward*(camera: ^Camera, distance: real32, moveInWorldPlane: bool)
+fn ImageToPOT*(image: ^Image, fill: Color)
+fn GetRayCollisionBox*(ray: Ray, box: BoundingBox): RayCollision
+fn ImageDrawTriangleStrip*(dst: ^Image, points: ^Vector2, pointCount: int, color: Color)
+fn SaveFileText*(fileName: str, text: ^uint8): bool
+fn CheckCollisionPointPoly*(point: Vector2, points: ^Vector2, pointCount: int): bool
+fn SetWindowMinSize*(width: int, height: int)
+fn GetMasterVolume*(): real32
+fn ClearBackground*(color: Color)
 fn ColorLerp*(color1: Color, color2: Color, factor: real32): Color
+fn DrawModel*(model: Model, position: Vector3, scale: real32, tint: Color)
+fn EndMode2D*()
+fn UnloadFileData*(data: ^uint8)
+fn TextToSnake*(text: str): str
+fn DrawSplineSegmentBezierCubic*(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, thick: real32, color: Color)
+fn GetWindowHandle*(): ^void
+fn LoadModelFromMesh*(mesh: Mesh): Model
+fn GenImageColor*(width: int, height: int, color: Color): Image
+fn IsAudioDeviceReady*(): bool
+fn LoadSound*(fileName: str): Sound
+fn WaveCrop*(wave: ^Wave, initFrame: int, finalFrame: int)
+fn DrawCircle3D*(center: Vector3, radius: real32, rotationAxis: Vector3, rotationAngle: real32, color: Color)
+fn UnloadAutomationEventList*(list: AutomationEventList)
+fn GetFileModTime*(fileName: str)
+fn TakeScreenshot*(fileName: str)
+fn ExportImage*(image: Image, fileName: str): bool
+fn TextAppend*(text: ^uint8, append: str, position: ^int)
+fn GenMeshHemiSphere*(radius: real32, rings: int, slices: int): Mesh
+fn SetTraceLogLevel*(logLevel: TraceLogLevel)
+fn GetScreenToWorldRay*(position: Vector2, camera: Camera): Ray
+fn BeginScissorMode*(x: int, y: int, width: int, height: int)
+fn SetShaderValueMatrix*(shader: Shader, locIndex: int, mat: Matrix)
+fn PlayAutomationEvent*(event: AutomationEvent)
+fn ExportWave*(wave: Wave, fileName: str): bool
+fn CameraRoll*(camera: ^Camera, angle: real32)
+fn IsAudioStreamValid*(stream: AudioStream): bool
+fn IsFontValid*(font: Font): bool
+fn ImageColorContrast*(image: ^Image, contrast: real32)
+fn IsTextureValid*(texture: Texture2D): bool
+fn UpdateMeshBuffer*(mesh: Mesh, index: int, data: ^void, dataSize: int, offset: int)
+fn GenImageWhiteNoise*(width: int, height: int, factor: real32): Image
+fn ImageDrawCircleV*(dst: ^Image, center: Vector2, radius: int, color: Color)
+fn SetGesturesEnabled*(flags: Gestures)
+fn DrawLineBezier*(startPos: Vector2, endPos: Vector2, thick: real32, color: Color)
+fn ColorFromNormalized*(normalized: Vector4): Color
+fn SetMouseCursor*(cursor: MouseCursor)
+fn GetSplinePointCatmullRom*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: real32): Vector2
+fn GetMouseWheelMoveV*(): Vector2
+fn UnloadDirectoryFiles*(files: FilePathList)
+fn GetMonitorCount*()
+fn GetCollisionRec*(rec1: Rectangle, rec2: Rectangle): Rectangle
+fn GetSplinePointBezierQuad*(p1: Vector2, c2: Vector2, p3: Vector2, t: real32): Vector2
+fn DrawTextureV*(texture: Texture2D, position: Vector2, tint: Color)
+fn GetShaderLocationAttrib*(shader: Shader, attribName: str)
+fn DrawRing*(center: Vector2, innerRadius: real32, outerRadius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
+fn IsMaterialValid*(material: Material): bool
+fn LoadShaderFromMemory*(vsCode: str, fsCode: str): Shader
+fn GetCodepointCount*(text: str)
+fn LoadFont*(fileName: str): Font
+fn UnloadTexture*(texture: Texture2D)
+fn IsMouseButtonUp*(button: MouseButton): bool
+fn CompressData*(data: ^void, dataSize: int, compDataSize: ^int)
+fn GetGesturePinchAngle*(): real32
+fn GetSplinePointBasis*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, t: real32): Vector2
+fn CloseWindow*()
+fn DrawCircleV*(center: Vector2, radius: real32, color: Color)
+fn ImageColorReplace*(image: ^Image, color: Color, replace: Color)
+fn GetShapesTexture*(): Texture2D
+fn GetRandomValue*(min: int, max: int)
+fn DrawTextureRec*(texture: Texture2D, source: Rectangle, position: Vector2, tint: Color)
+fn GetWorkingDirectory*(): str
+fn SetShaderValueV*(shader: Shader, locIndex: int, value: ^void, uniformType: ShaderUniformDataType, count: int)
+fn IsMouseButtonReleased*(button: MouseButton): bool
+fn IsKeyPressed*(key: KeyboardKey): bool
+fn GetPixelColor*(srcPtr: ^void, format: PixelFormat): Color
+fn DrawRectangleRoundedLinesEx*(rec: Rectangle, roundness: real32, segments: int, lineThick: real32, color: Color)
+fn ImageFormat*(image: ^Image, newFormat: PixelFormat)
+fn DrawMesh*(mesh: Mesh, material: Material, transform: Matrix)
+fn LoadImageFromTexture*(texture: Texture2D): Image
+fn GetPixelDataSize*(width: int, height: int, format: PixelFormat)
+fn GetCameraMatrix*(camera: Camera): Matrix
+fn ImageAlphaMask*(image: ^Image, alphaMask: Image)
+fn LoadImageColors*(image: Image)
+fn UnloadDroppedFiles*(files: FilePathList)
+fn DrawCubeWiresV*(position: Vector3, size: Vector3, color: Color)
+fn DrawPixelV*(position: Vector2, color: Color)
+fn GenImageFontAtlas*(glyphs: ^GlyphInfo, glyphRecs: ^^Rectangle, codepointCount: int, fontSize: int, padding: int, packMethod: int): Image
+fn TextToFloat*(text: str): real32
+fn GetScreenToWorld2D*(position: Vector2, camera: Camera2D): Vector2
+fn DrawBillboard*(camera: Camera, texture: Texture2D, position: Vector3, scale: real32, tint: Color)
+fn GenMeshSphere*(radius: real32, rings: int, slices: int): Mesh
+fn StopAudioStream*(stream: AudioStream)
+fn GetGamepadAxisMovement*(gamepad: int, axis: GamepadAxis): real32
+fn GenImageChecked*(width: int, height: int, checksX: int, checksY: int, col1: Color, col2: Color): Image
+fn ImageDrawRectangle*(dst: ^Image, posX: int, posY: int, width: int, height: int, color: Color)
+fn HideCursor*()
+fn DrawModelPoints*(model: Model, position: Vector3, scale: real32, tint: Color)
+fn SetWindowIcons*(images: ^Image, count: int)
+fn GetMouseWheelMove*(): real32
+fn GenMeshCylinder*(radius: real32, height: real32, slices: int): Mesh
+fn GetTime*(): real
+fn UpdateAudioStream*(stream: AudioStream, data: ^void, frameCount: int)
+fn ColorToHSV*(color: Color): Vector3
+fn DrawPoly*(center: Vector2, sides: int, radius: real32, rotation: real32, color: Color)
+fn IsGamepadButtonReleased*(gamepad: int, button: GamepadButton): bool
+fn GetShaderLocation*(shader: Shader, uniformName: str)
+fn DrawTextPro*(font: Font, text: str, position: Vector2, origin: Vector2, rotation: real32, fontSize: real32, spacing: real32, tint: Color)
+fn EndDrawing*()
+fn CheckCollisionPointLine*(point: Vector2, p1: Vector2, p2: Vector2, threshold: int): bool
+fn SetTextureFilter*(texture: Texture2D, filter: TextureFilter)
+fn SetModelMeshMaterial*(model: ^Model, meshId: int, materialId: int)
+fn LoadRandomSequence*(count: uint, min: int, max: int)
+fn GetWorldToScreen*(position: Vector3, camera: Camera): Vector2
+fn GetScreenWidth*()
+fn ImageRotateCCW*(image: ^Image)
+fn DrawTextCodepoint*(font: Font, codepoint: uint32, position: Vector2, fontSize: real32, tint: Color)
+fn ExportDataAsCode*(data: ^void, dataSize: int, fileName: str): bool
+fn UnloadShader*(shader: Shader)
+fn LoadSoundFromWave*(wave: Wave): Sound
+fn ResumeMusicStream*(music: Music)
+fn SetMusicPan*(music: Music, pan: real32)
+fn TextFindIndex*(text: str, find: str)
+fn CloseAudioDevice*()
+fn GetGestureHoldDuration*(): real32
+fn IsSoundPlaying*(sound: Sound): bool
+fn SetAudioStreamPitch*(stream: AudioStream, pitch: real32)
+fn SetConfigFlags*(flags: ConfigFlags)
+fn SetSoundPan*(sound: Sound, pan: real32)
+fn EndShaderMode*()
+fn MemAlloc*(size: uint): ^void
+fn DrawRectangleRounded*(rec: Rectangle, roundness: real32, segments: int, color: Color)
+fn GetTouchPosition*(index: int): Vector2
+fn IsCursorHidden*(): bool
+fn IsShaderValid*(shader: Shader): bool
+fn ExportMeshAsCode*(mesh: Mesh, fileName: str): bool
+fn PauseAudioStream*(stream: AudioStream)
+fn SetWindowSize*(width: int, height: int)
+fn TextSplit*(text: str, delimiter: uint8, count: ^int)
+fn CameraMoveRight*(camera: ^Camera, distance: real32, moveInWorldPlane: bool)
+fn ShowCursor*()
+fn TextReplace*(text: ^uint8, replace: str, by: str)
+fn DrawBillboardRec*(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, size: Vector2, tint: Color)
+fn GetGlyphIndex*(font: Font, codepoint: uint32)
+fn ImageDrawCircle*(dst: ^Image, centerX: int, centerY: int, radius: int, color: Color)
+fn DrawTriangleStrip3D*(points: ^Vector3, pointCount: int, color: Color)
+fn UpdateCamera*(camera: ^Camera, mode: CameraMode)
+fn GetWindowPosition*(): Vector2
+fn EnableEventWaiting*()
+fn SetMouseOffset*(offsetX: int, offsetY: int)
+fn GetRenderHeight*()
+fn SetShaderValueTexture*(shader: Shader, locIndex: int, texture: Texture2D)
+fn GetMousePosition*(): Vector2
+fn SetTargetFPS*(fps: int)
+fn PauseSound*(sound: Sound)
+fn LoadImageAnimFromMemory*(fileType: str, fileData: ^void, dataSize: int, frames: ^int): Image
+fn DrawTriangleStrip*(points: ^Vector2, pointCount: int, color: Color)
+fn LoadImageFromScreen*(): Image
+fn GetCameraMatrix2D*(camera: Camera2D): Matrix
+fn GetImageColor*(image: Image, x: int, y: int): Color
+fn GenMeshTorus*(radius: real32, size: real32, radSeg: int, sides: int): Mesh
+fn LoadFileData*(fileName: str, dataSize: ^int)
+fn IsFileDropped*(): bool
+fn PlayMusicStream*(music: Music)
+fn IsKeyDown*(key: KeyboardKey): bool
+fn LoadTexture*(fileName: str): Texture2D
+fn GetWindowScaleDPI*(): Vector2
+fn GetCameraProjectionMatrix*(camera: ^Camera, aspect: real32): Matrix
+fn GetCodepointNext*(text: str, codepointSize: ^int): uint32
+fn LoadSoundAlias*(source: Sound): Sound
+fn InitAudioDevice*()
+fn BeginMode3D*(camera: Camera3D)
+fn EndScissorMode*()
+fn DrawRectangle*(posX: int, posY: int, width: int, height: int, color: Color)
+fn GetRenderWidth*()
+fn PauseMusicStream*(music: Music)
+fn GetScreenToWorldRayEx*(position: Vector2, camera: Camera, width: int, height: int): Ray
+fn ClearWindowState*(flags: ConfigFlags)
+fn TextToPascal*(text: str): str
+fn GenMeshKnot*(radius: real32, size: real32, radSeg: int, sides: int): Mesh
+fn SetAudioStreamBufferSizeDefault*(size: int)
+fn DrawText*(text: str, posX: int, posY: int, fontSize: int, color: Color)
+fn ColorToInt*(color: Color)
+fn InitWindow*(width: int, height: int, title: str)
+fn UnloadMesh*(mesh: Mesh)
+fn IsKeyReleased*(key: KeyboardKey): bool
+fn GetMouseX*()
+fn DrawCircleSectorLines*(center: Vector2, radius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
+fn IsMusicValid*(music: Music): bool
+fn DrawCylinder*(position: Vector3, radiusTop: real32, radiusBottom: real32, height: real32, slices: int, color: Color)
+fn BeginDrawing*()
+fn UpdateTextureRec*(texture: Texture2D, rec: Rectangle, pixels: ^void)
+fn DrawPixel*(posX: int, posY: int, color: Color)
+fn DrawTexturePro*(texture: Texture2D, source: Rectangle, dest: Rectangle, origin: Vector2, rotation: real32, tint: Color)
+fn SetExitKey*(key: KeyboardKey)
+fn DrawPolyLines*(center: Vector2, sides: int, radius: real32, rotation: real32, color: Color)
+fn SeekMusicStream*(music: Music, position: real32)
+fn ImageDrawCircleLinesV*(dst: ^Image, center: Vector2, radius: int, color: Color)
+fn SetWindowState*(flags: ConfigFlags)
+fn SetTextureWrap*(texture: Texture2D, wrap: TextureWrap)
+fn SetMaterialTexture*(material: ^Material, mapType: MaterialMapIndex, texture: Texture2D)
+fn ImageDrawTriangleEx*(dst: ^Image, v1: Vector2, v2: Vector2, v3: Vector2, c1: Color, c2: Color, c3: Color)
+fn UpdateSound*(sound: Sound, data: ^void, frameCount: int)
+fn WaveCopy*(wave: Wave): Wave
+fn GetTouchX*()
+fn LoadAudioStream*(sampleRate: uint, sampleSize: uint, channels: uint): AudioStream
+fn EndBlendMode*()
+fn DrawRingLines*(center: Vector2, innerRadius: real32, outerRadius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
+fn IsWindowFullscreen*(): bool
+fn ImageDrawTriangleFan*(dst: ^Image, points: ^Vector2, pointCount: int, color: Color)
+fn ImageDrawPixelV*(dst: ^Image, position: Vector2, color: Color)
+fn CameraYaw*(camera: ^Camera, angle: real32, rotateAroundTarget: bool)
+fn ExportImageAsCode*(image: Image, fileName: str): bool
+fn DrawCubeWires*(position: Vector3, width: real32, height: real32, length: real32, color: Color)
+fn DrawCapsuleWires*(startPos: Vector3, endPos: Vector3, radius: real32, slices: int, rings: int, color: Color)
+fn GetMonitorWidth*(monitor: int)
+fn ChangeDirectory*(dir: str): bool
+fn CameraPitch*(camera: ^Camera, angle: real32, lockView: bool, rotateAroundTarget: bool, rotateUp: bool)
+fn TextToInteger*(text: str)
+fn SetMasterVolume*(volume: real32)
+fn PlayAudioStream*(stream: AudioStream)
+fn DirectoryExists*(dirPath: str): bool
+fn GenImagePerlinNoise*(width: int, height: int, offsetX: int, offsetY: int, scale: real32): Image
+fn UnloadFileText*(text: ^uint8)
+fn DrawSplineSegmentLinear*(p1: Vector2, p2: Vector2, thick: real32, color: Color)
+fn DrawSplineLinear*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
+fn GenMeshCube*(width: real32, height: real32, length: real32): Mesh
+fn FileExists*(fileName: str): bool
+fn DrawLine3D*(startPos: Vector3, endPos: Vector3, color: Color)
+fn GenMeshCone*(radius: real32, height: real32, slices: int): Mesh
+fn CheckCollisionBoxSphere*(box: BoundingBox, center: Vector3, radius: real32): bool
+fn GetCodepoint*(text: str, codepointSize: ^int): uint32
+fn ImageDither*(image: ^Image, rBpp: int, gBpp: int, bBpp: int, aBpp: int)
+fn LoadImageFromMemory*(fileType: str, fileData: ^void, dataSize: int): Image
+fn ImageColorBrightness*(image: ^Image, brightness: int)
+fn GetMusicTimePlayed*(music: Music): real32
+fn SetGamepadMappings*(mappings: str)
+fn DrawCircleSector*(center: Vector2, radius: real32, startAngle: real32, endAngle: real32, segments: int, color: Color)
+fn ExportFontAsCode*(font: Font, fileName: str): bool
+fn DrawPoint3D*(position: Vector3, color: Color)
+fn GenImageText*(width: int, height: int, text: str): Image
+fn DrawTexture*(texture: Texture2D, posX: int, posY: int, tint: Color)
+fn EncodeDataBase64*(data: ^void, dataSize: int, outputSize: ^int)
+fn CheckCollisionLines*(startPos1: Vector2, endPos1: Vector2, startPos2: Vector2, endPos2: Vector2, collisionPoint: ^Vector2): bool
+fn DrawLineEx*(startPos: Vector2, endPos: Vector2, thick: real32, color: Color)
+fn ImageCrop*(image: ^Image, crop: Rectangle)
+fn ToggleFullscreen*()
+fn DrawTriangle3D*(v1: Vector3, v2: Vector3, v3: Vector3, color: Color)
+fn ToggleBorderlessWindowed*()
+fn DrawModelWiresEx*(model: Model, position: Vector3, rotationAxis: Vector3, rotationAngle: real32, scale: Vector3, tint: Color)
+fn GenMeshTangents*(mesh: ^Mesh)
+fn SetSoundVolume*(sound: Sound, volume: real32)
+fn GetGestureDragAngle*(): real32
+fn DrawTriangle*(v1: Vector2, v2: Vector2, v3: Vector2, color: Color)
+fn DrawTriangleFan*(points: ^Vector2, pointCount: int, color: Color)
+fn DisableEventWaiting*()
+fn DrawTextureNPatch*(texture: Texture2D, nPatchInfo: NPatchInfo, dest: Rectangle, origin: Vector2, rotation: real32, tint: Color)
+fn GetRayCollisionQuad*(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3): RayCollision
+fn LoadMusicStream*(fileName: str): Music
+fn TextIsEqual*(text1: str, text2: str): bool
+fn ImageTextEx*(font: Font, text: str, fontSize: real32, spacing: real32, tint: Color): Image
+fn GetShapesTextureRectangle*(): Rectangle
+fn GenImageGradientLinear*(width: int, height: int, direction: int, start: Color, end: Color): Image
+fn GetFileName*(filePath: str): str
+fn GetCameraRight*(camera: ^Camera): Vector3
+fn IsMusicStreamPlaying*(music: Music): bool
+fn GetGlyphInfo*(font: Font, codepoint: uint32): GlyphInfo
+fn TextCopy*(dst: ^uint8, src: str)
+fn SaveFileData*(fileName: str, data: ^void, dataSize: int): bool
+fn LoadFontData*(fileData: ^void, dataSize: int, fontSize: int, codepoints: ^uint32, codepointCount: int, type_: FontType)
+fn DrawRectangleLinesEx*(rec: Rectangle, lineThick: real32, color: Color)
+fn GetGamepadAxisCount*(gamepad: int)
+fn DrawModelPointsEx*(model: Model, position: Vector3, rotationAxis: Vector3, rotationAngle: real32, scale: Vector3, tint: Color)
+fn SetWindowTitle*(title: str)
+fn IsWindowMinimized*(): bool
+fn ColorAlphaBlend*(dst: Color, src: Color, tint: Color): Color
+fn LoadFontFromImage*(image: Image, key: Color, firstChar: uint32): Font
+fn LoadUTF8*(codepoints: ^uint32, length: int)
+fn GetPrevDirectoryPath*(dirPath: str): str
+fn StopMusicStream*(music: Music)
+fn UnloadRenderTexture*(target: RenderTexture2D)
+fn TextToUpper*(text: str): str
+fn IsAudioStreamProcessed*(stream: AudioStream): bool
+fn GenMeshPlane*(width: real32, length: real32, resX: int, resZ: int): Mesh
+fn GetDirectoryPath*(filePath: str): str
+fn DrawCircleLines*(centerX: int, centerY: int, radius: real32, color: Color)
+fn ResumeSound*(sound: Sound)
+fn TextToLower*(text: str): str
+fn GetFrameTime*(): real32
+fn ImageFlipVertical*(image: ^Image)
+fn SetWindowMaxSize*(width: int, height: int)
+fn TextLength*(text: str)
+fn BeginBlendMode*(mode: BlendMode)
+fn BeginMode2D*(camera: Camera2D)
+fn BeginShaderMode*(shader: Shader)
+fn MinimizeWindow*()
+fn GenImageGradientSquare*(width: int, height: int, density: real32, inner: Color, outer: Color): Image
+fn DrawBillboardPro*(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, up: Vector3, size: Vector2, origin: Vector2, rotation: real32, tint: Color)
+fn DrawMeshInstanced*(mesh: Mesh, material: Material, transforms: ^Matrix, instances: int)
+fn ImageKernelConvolution*(image: ^Image, kernel: ^real32, kernelSize: int)
+fn LoadModelAnimations*(fileName: str, animCount: ^int)
+fn SetMouseScale*(scaleX: real32, scaleY: real32)
+fn UnloadModelAnimations*(animations: ^ModelAnimation, animCount: int)
+fn UploadMesh*(mesh: ^Mesh, is_dynamic: bool)
+fn StopAutomationEventRecording*()
+fn GetMonitorHeight*(monitor: int)
+fn DrawSphereEx*(centerPos: Vector3, radius: real32, rings: int, slices: int, color: Color)
+fn ImageColorInvert*(image: ^Image)
+fn GetApplicationDirectory*(): str
+fn GetSplinePointBezierCubic*(p1: Vector2, c2: Vector2, c3: Vector2, p4: Vector2, t: real32): Vector2
+fn UnloadImageColors*(colors: ^Color)
+fn GetFileExtension*(fileName: str): str
+fn ImageCopy*(image: Image): Image
+fn LoadModel*(fileName: str): Model
+fn GetCharPressed*(): uint32
+fn IsKeyUp*(key: KeyboardKey): bool
+fn IsMouseButtonDown*(button: MouseButton): bool
+fn IsWaveValid*(wave: Wave): bool
+fn DrawPolyLinesEx*(center: Vector2, sides: int, radius: real32, rotation: real32, lineThick: real32, color: Color)
+fn DrawRectanglePro*(rec: Rectangle, origin: Vector2, rotation: real32, color: Color)
 fn ColorNormalize*(color: Color): Vector4
 fn IsWindowMaximized*(): bool
-fn GetCodepointNext*(text: str, codepointSize: ^int): uint32
-fn ImageAlphaPremultiply*(image: ^Image)
-fn UnloadAutomationEventList*(list: AutomationEventList)
-fn UnloadModelAnimation*(anim: ModelAnimation)
+fn SetAutomationEventList*(list: ^AutomationEventList)
+fn GenImageCellular*(width: int, height: int, tileSize: int): Image
+fn CheckCollisionPointTriangle*(point: Vector2, p1: Vector2, p2: Vector2, p3: Vector2): bool
+fn GetSplinePointLinear*(startPos: Vector2, endPos: Vector2, t: real32): Vector2
 fn DrawCubeV*(position: Vector3, size: Vector3, color: Color)
-fn ImageDrawCircleLines*(dst: ^Image, centerX: int, centerY: int, radius: int, color: Color)
-fn DrawCylinderWires*(position: Vector3, radiusTop: real32, radiusBottom: real32, height: real32, slices: int, color: Color)
-fn EndTextureMode*()
-fn GetShaderLocationAttrib*(shader: Shader, attribName: str)
-fn SetShaderValueTexture*(shader: Shader, locIndex: int, texture: Texture2D)
-fn LoadImageFromScreen*(): Image
-fn ImageResizeCanvas*(image: ^Image, newWidth: int, newHeight: int, offsetX: int, offsetY: int, fill: Color)
-fn InitAudioDevice*()
-fn TextSplit*(text: str, delimiter: uint8, count: ^int)
-fn GetPrevDirectoryPath*(dirPath: str): str
-fn IsSoundPlaying*(sound: Sound): bool
-fn PlayAutomationEvent*(event: AutomationEvent)
-fn ImageCrop*(image: ^Image, crop: Rectangle)
-fn GetModelBoundingBox*(model: Model): BoundingBox
-fn DrawLine3D*(startPos: Vector3, endPos: Vector3, color: Color)
-fn CheckCollisionLines*(startPos1: Vector2, endPos1: Vector2, startPos2: Vector2, endPos2: Vector2, collisionPoint: ^Vector2): bool
-fn UnloadRandomSequence*(sequence: ^int)
-fn DrawSplineBezierQuadratic*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
-fn SetTargetFPS*(fps: int)
-fn LoadSoundFromWave*(wave: Wave): Sound
-fn ImageColorBrightness*(image: ^Image, brightness: int)
-fn LoadWaveSamples*(wave: Wave)
+fn DisableCursor*()
 fn SetPixelColor*(dstPtr: ^void, color: Color, format: PixelFormat)
-fn SetWindowMinSize*(width: int, height: int)
-fn IsMouseButtonPressed*(button: MouseButton): bool
-fn DrawMesh*(mesh: Mesh, material: Material, transform: Matrix)
-fn LoadRenderTexture*(width: int, height: int): RenderTexture2D
-fn UnloadSound*(sound: Sound)
-fn ImageCopy*(image: Image): Image
-fn GetFileLength*(fileName: str)
-fn MeasureText*(text: str, fontSize: int)
-fn ImageDrawLine*(dst: ^Image, startPosX: int, startPosY: int, endPosX: int, endPosY: int, color: Color)
-fn DrawCircleGradient*(centerX: int, centerY: int, radius: real32, inner: Color, outer: Color)
-fn GetMonitorHeight*(monitor: int)
-fn DrawPolyLines*(center: Vector2, sides: int, radius: real32, rotation: real32, color: Color)
-fn LoadSound*(fileName: str): Sound
-fn SetExitKey*(key: KeyboardKey)
-fn LoadModelFromMesh*(mesh: Mesh): Model
+fn UpdateModelAnimationBones*(model: Model, anim: ModelAnimation, frame: int)
+fn UpdateTexture*(texture: Texture2D, pixels: ^void)
+fn DrawSplineSegmentCatmullRom*(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2, thick: real32, color: Color)
+fn IsWindowResized*(): bool
+fn DrawRectangleLines*(posX: int, posY: int, width: int, height: int, color: Color)
+fn GetMonitorPhysicalHeight*(monitor: int)
 fn UnloadCodepoints*(codepoints: ^uint32)
-fn LoadImage*(fileName: str): Image
-fn LoadMusicStream*(fileName: str): Music
-fn ExportImageAsCode*(image: Image, fileName: str): bool
-fn ColorBrightness*(color: Color, factor: real32): Color
-fn LoadTextureCubemap*(image: Image, layout: CubemapLayout): TextureCubemap
-fn IsWindowFocused*(): bool
-fn ComputeMD5*(data: ^void, dataSize: int)
-fn ExportImageToMemory*(image: Image, fileType: str, fileSize: ^int): ^void
-fn GetCurrentMonitor*()
-fn DrawTexturePro*(texture: Texture2D, source: Rectangle, dest: Rectangle, origin: Vector2, rotation: real32, tint: Color)
-fn DrawCylinder*(position: Vector3, radiusTop: real32, radiusBottom: real32, height: real32, slices: int, color: Color)
-fn DrawModelWires*(model: Model, position: Vector3, scale: real32, tint: Color)
-fn DrawCircle*(centerX: int, centerY: int, radius: real32, color: Color)
-fn ImageRotateCCW*(image: ^Image)
-fn CodepointToUTF8*(codepoint: uint32, utf8Size: ^int): str
-fn DrawTextureNPatch*(texture: Texture2D, nPatchInfo: NPatchInfo, dest: Rectangle, origin: Vector2, rotation: real32, tint: Color)
-fn CloseAudioDevice*()
-fn IsWindowState*(flags: ConfigFlags): bool
-fn UnloadModel*(model: Model)
-fn DrawRectangleRoundedLines*(rec: Rectangle, roundness: real32, segments: int, color: Color)
-fn LoadMaterialDefault*(): Material
-fn SetAudioStreamVolume*(stream: AudioStream, volume: real32)
-fn IsWaveValid*(wave: Wave): bool
-fn ImageResize*(image: ^Image, newWidth: int, newHeight: int)
-fn MemAlloc*(size: uint): ^void
-fn WaveFormat*(wave: ^Wave, sampleRate: int, sampleSize: int, channels: int)
-fn UpdateMeshBuffer*(mesh: Mesh, index: int, data: ^void, dataSize: int, offset: int)
-fn SetAutomationEventBaseFrame*(frame: int)
-fn PlaySound*(sound: Sound)
-fn IsGestureDetected*(gesture: Gesture): bool
-fn SetWindowIcon*(image: Image)
-fn IsModelAnimationValid*(model: Model, anim: ModelAnimation): bool
-fn SetShaderValueV*(shader: Shader, locIndex: int, value: ^void, uniformType: ShaderUniformDataType, count: int)
-fn DrawSplineLinear*(points: ^Vector2, pointCount: int, thick: real32, color: Color)
-fn DrawRectanglePro*(rec: Rectangle, origin: Vector2, rotation: real32, color: Color)
-fn SwapScreenBuffer*()
-fn LoadFontFromMemory*(fileType: str, fileData: ^void, dataSize: int, fontSize: int, codepoints: ^uint32, codepointCount: int): Font
-fn CameraYaw*(camera: ^Camera, angle: real32, rotateAroundTarget: bool)
-fn DrawCapsuleWires*(startPos: Vector3, endPos: Vector3, radius: real32, slices: int, rings: int, color: Color)
-fn TextLength*(text: str)
-fn ExportWaveAsCode*(wave: Wave, fileName: str): bool
-fn DrawTextCodepoint*(font: Font, codepoint: uint32, position: Vector2, fontSize: real32, tint: Color)
-fn GetGamepadButtonPressed*(): GamepadButton
-fn DrawRectangleGradientEx*(rec: Rectangle, topLeft: Color, bottomLeft: Color, topRight: Color, bottomRight: Color)
-fn GetCharPressed*(): uint32
-fn CheckCollisionPointRec*(point: Vector2, rec: Rectangle): bool
-fn SetGamepadMappings*(mappings: str)
-fn IsShaderValid*(shader: Shader): bool
-fn GetMouseX*()
-fn UnloadImage*(image: Image)
-fn ClearBackground*(color: Color)
-fn IsFontValid*(font: Font): bool
-fn ImageBlurGaussian*(image: ^Image, blurSize: int)
-fn GetWorkingDirectory*(): str
-fn IsMouseButtonUp*(button: MouseButton): bool
-fn ImageDrawTriangleEx*(dst: ^Image, v1: Vector2, v2: Vector2, v3: Vector2, c1: Color, c2: Color, c3: Color)
-fn SetMaterialTexture*(material: ^Material, mapType: MaterialMapIndex, texture: Texture2D)
+fn DecompressData*(compData: ^void, compDataSize: int, dataSize: ^int)
+fn EndMode3D*()
+fn IsGamepadButtonUp*(gamepad: int, button: GamepadButton): bool
+fn IsSoundValid*(sound: Sound): bool
+fn ImageRotate*(image: ^Image, degrees: int)
+fn DrawLineV*(startPos: Vector2, endPos: Vector2, color: Color)
 fn GetMonitorPhysicalWidth*(monitor: int)
-fn ImageDither*(image: ^Image, rBpp: int, gBpp: int, bBpp: int, aBpp: int)
-fn LoadRandomSequence*(count: uint, min: int, max: int)
-fn GetMouseWheelMove*(): real32
-fn LoadFontFromImage*(image: Image, key: Color, firstChar: uint32): Font
-fn DrawPoly*(center: Vector2, sides: int, radius: real32, rotation: real32, color: Color)
-fn GetWindowPosition*(): Vector2
-fn StopAutomationEventRecording*()
-fn EndMode2D*()
-fn SetShaderValueMatrix*(shader: Shader, locIndex: int, mat: Matrix)
-fn LoadFontData*(fileData: ^void, dataSize: int, fontSize: int, codepoints: ^uint32, codepointCount: int, type_: FontType)
-fn GetKeyPressed*(): KeyboardKey
-fn DrawRay*(ray: Ray, color: Color)
-fn IsAudioStreamProcessed*(stream: AudioStream): bool
-fn DrawCylinderWiresEx*(startPos: Vector3, endPos: Vector3, startRadius: real32, endRadius: real32, sides: int, color: Color)
-fn UnloadFontData*(glyphs: ^GlyphInfo, glyphCount: int)
-fn CompressData*(data: ^void, dataSize: int, compDataSize: ^int)
-fn DrawBillboardPro*(camera: Camera, texture: Texture2D, source: Rectangle, position: Vector3, up: Vector3, size: Vector2, origin: Vector2, rotation: real32, tint: Color)
-fn ImageColorGrayscale*(image: ^Image)
-fn GetTouchX*()
-fn GetFontDefault*(): Font
-fn IsRenderTextureValid*(target: RenderTexture2D): bool
-fn TextInsert*(text: str, insert: str, position: int)
-fn IsWindowFullscreen*(): bool
-fn LoadFileText*(fileName: str)
+fn DrawCylinderEx*(startPos: Vector3, endPos: Vector3, startRadius: real32, endRadius: real32, sides: int, color: Color)
+fn PollInputEvents*()
+fn LoadWaveFromMemory*(fileType: str, fileData: ^void, dataSize: int): Wave
+fn GetColor*(hexValue: uint): Color
+fn LoadShader*(vsFileName: str, fsFileName: str): Shader
+fn GetMonitorPosition*(monitor: int): Vector2
+fn PlaySound*(sound: Sound)
+fn CheckCollisionBoxes*(box1: BoundingBox, box2: BoundingBox): bool
+fn DrawLineStrip*(points: ^Vector2, pointCount: int, color: Color)
+fn SetWindowPosition*(x: int, y: int)
+fn GetGestureDragVector*(): Vector2
+fn DrawCylinderWires*(position: Vector3, radiusTop: real32, radiusBottom: real32, height: real32, slices: int, color: Color)
+fn DrawGrid*(slices: int, spacing: real32)
+fn GetWorldToScreen2D*(position: Vector2, camera: Camera2D): Vector2
+fn DrawRectangleRoundedLines*(rec: Rectangle, roundness: real32, segments: int, color: Color)
+fn GetCodepointPrevious*(text: str, codepointSize: ^int): uint32
+fn GetRayCollisionSphere*(ray: Ray, center: Vector3, radius: real32): RayCollision
+fn UnloadModelAnimation*(anim: ModelAnimation)
+fn SetWindowOpacity*(opacity: real32)
+fn DrawEllipseLines*(centerX: int, centerY: int, radiusH: real32, radiusV: real32, color: Color)
+fn DrawCapsule*(startPos: Vector3, endPos: Vector3, radius: real32, slices: int, rings: int, color: Color)
+fn TextToCamel*(text: str): str

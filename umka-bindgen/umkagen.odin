@@ -100,6 +100,32 @@ init_default :: proc(arena_allocator: ^runtime.Arena = nil) {
 }
 
 generate :: proc() {
+	// r, w, pipe_err := os.pipe()
+	// if pipe_err != nil {
+	// 	fmt.eprintln("Pipe error:", pipe_err)
+	// 	return
+	// }
+
+	// p, start_err := os.process_start({command = {"odin", "root"}, stdout = w})
+
+	// os.close(w)
+
+	// if start_err != nil {
+	// 	fmt.eprintln("Start error:", start_err)
+	// 	os.close(r)
+	// 	return
+	// }
+
+	// output, read_err := os.read_entire_file(r, context.temp_allocator)
+	// os.close(r)
+
+	// // 4. Wait for process to clean up
+	// state, proc_err := os.process_wait(p)
+
+	// // 5. Clean up the string
+	// root_path := strings.trim_space(string(output))
+	// fmt.println("Odin root is:", root_path)
+	// dd()
 	for pkg in packages {
 		if packages[pkg].parse {
 			parse_package(&packages[pkg])

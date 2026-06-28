@@ -70,6 +70,7 @@ fn main() {
         rl::DrawText("First person camera default controls:", 20, 20, 10, black);
         rl::DrawText("- Move with keys: W, A, S, D", 40, 40, 10, darkGray);
         rl::DrawText("- Mouse move to look around", 40, 60, 10, darkGray);
+        rl::DrawFPS(720, 20)
         rl::EndDrawing()
     }
 }

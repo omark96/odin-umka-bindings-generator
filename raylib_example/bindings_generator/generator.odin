@@ -1,6 +1,7 @@
 package generator
 
 import umkagen "../../umka-bindgen"
+import "core:os"
 
 main :: proc() {
 	rl_package := umkagen.Package {
@@ -37,6 +38,7 @@ main :: proc() {
 			"SetAudioStreamCallback",
 			"DetachAudioMixedProcessor",
 			"AttachAudioStreamProcessor",
+			"ColorIsEqual", //Broken binding in vendor:raylib, deprecated, might as well remove
 		},
 	}
 
