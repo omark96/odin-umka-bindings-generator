@@ -136,7 +136,7 @@ print_some_array :: proc(a: Some_Array) {
 	fmt.printfln("%#v", a)
 }
 
-g_umka_ctx: umka.Context
+g_umka_ctx: ^umka.Umka
 
 main :: proc() {
 	context.logger = log.create_console_logger()
@@ -164,7 +164,7 @@ main :: proc() {
 
 
 	fmt.println("Adding bindings")
-	umka_add_bindings(&g_umka_ctx)
+	umka_add_bindings(g_umka_ctx)
 
 	fmt.println("Compiling")
 	rv := umka.Compile(g_umka_ctx)
