@@ -1,0 +1,55 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Raylib Example - Generate Bindings",
+            "type": "shell",
+            "command": "odin run .",
+            "options": {
+                "cwd": "${workspaceFolder}/raylib_example/bindings_generator"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Raylib Example - Run Example",
+            "type": "shell",
+            "command": "odin run .",
+            "options": {
+                "cwd": "${workspaceFolder}/raylib_example/"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Example - Generate Bindings",
+            "type": "shell",
+            "command": "odin run .",
+            "options": {
+                "cwd": "${workspaceFolder}/example/bindings_generator"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Example - Run Example",
+            "type": "shell",
+            "command": "odin run .",
+            "options": {
+                "cwd": "${workspaceFolder}/example/"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
+    ]
+}
