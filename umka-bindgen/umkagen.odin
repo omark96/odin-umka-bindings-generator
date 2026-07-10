@@ -1030,151 +1030,94 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 
 	fmt.fprintln(f, `type (`)
 	for {
-		for struct_name, type in odin_pkg.types {
-			if type.kind == .Struct && struct_name in added_types == false {
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[struct_name] = {}
-					}
+		for type_name, type in odin_pkg.types {
+			if type.kind == .Comp_Lit ||
+			   type.kind == .Bool_Lit ||
+			   type.kind == .Basic_Lit ||
+			   type.kind == .Float_Lit ||
+			   type.kind == .String_Lit ||
+			   type.kind == .Integer_Lit ||
+			   type.kind == .Quaternion_Lit {
+				continue
+			}
+			if type_name in added_types do continue
+			unresolved_dependency := false
+			for dependency in type.dependencies {
+				if dependency in added_types == false {
+					unresolved_dependency = true
+					unresolved_types[type_name] = {}
 				}
-				if unresolved_dependency == true {
-					continue
-				} else if struct_name in unresolved_types {
-					delete_key(&unresolved_types, struct_name)
-				}
-				fmt.fprintfln(f, `	%s* = struct {{`, struct_name)
+			}
+			if unresolved_dependency {
+				continue
+			}
+			if type_name in unresolved_types {
+				delete_key(&unresolved_types, type_name)
+			}
+			#partial switch type.kind {
+			case .Struct:
+				fmt.fprintfln(f, `	%s* = struct {{`, type_name)
 				for field in type.fields {
 					fmt.fprintf(f, `		`)
 					for name, i in field.names {
 
-						type_name := umka_base_type_name(field.base_type^)
+						umka_type_name := umka_base_type_name(field.base_type^)
 						if i < len(field.names) - 1 {
 							fmt.fprintf(f, `%s,`, name == "type" ? "type_" : name)
 						} else {
-							fmt.fprintfln(f, `%s: %s`, name == "type" ? "type_" : name, type_name)
+							fmt.fprintfln(
+								f,
+								`%s: %s`,
+								name == "type" ? "type_" : name,
+								umka_type_name,
+							)
 						}
 					}
 				}
 				fmt.fprintfln(f, `	}}`)
-				added_types[struct_name] = {}
-			}
-		}
-		for array_name, type in odin_pkg.types {
-			if type.kind == .Array && array_name in added_types == false {
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[array_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if array_name in unresolved_types {
-					delete_key(&unresolved_types, array_name)
-				}
-				type_name :=
+			case .Array:
+				umka_type_name :=
 					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
-				fmt.fprintfln(f, `	%s* = [%d]%s`, array_name, type.length, type_name)
-				added_types[array_name] = {}
-			}
-		}
-		for tag_expr_name, type in odin_pkg.types {
-			if type.base_type != nil &&
-			   type.base_type.kind == .Matrix &&
-			   tag_expr_name in added_types == false {
-				matrix_name := tag_expr_name
-				// dd(matrix_name)
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[matrix_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if matrix_name in unresolved_types {
-					delete_key(&unresolved_types, matrix_name)
-				}
-				type_name := type.base_type.base_type.names[0]
-				type_name = type_name in odin_to_umka ? odin_to_umka[type_name].name : type_name
-				fmt.fprintfln(f, `	%s* = [%d]%s`, matrix_name, type.base_type.length, type_name)
-				added_types[matrix_name] = {}
-			}
-		}
-		// TODO: Slices?
-		for enum_name, type in odin_pkg.types {
-			if type.kind == .Enum && enum_name in added_types == false {
-
+				fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, type.length, umka_type_name)
+			case .Matrix:
+				if type.base_type == nil do continue
+				umka_type_name := type.base_type.base_type.names[0]
+				umka_type_name =
+					umka_type_name in odin_to_umka ? odin_to_umka[umka_type_name].name : umka_type_name
+				fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, type.base_type.length, umka_type_name)
+			case .Enum:
 				backing_string :=
 					type.base_type.names[0] != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type.names[0]].name) : ""
-				fmt.fprintfln(f, `	%s* = enum %s{{`, enum_name, backing_string)
+				fmt.fprintfln(f, `	%s* = enum %s{{`, type_name, backing_string)
 				prev_val := -1
 				for field in type.fields {
 					fmt.fprintfln(f, `		%s = %v`, field.names[0], field.value)
 				}
 				fmt.fprintfln(f, `	}}`)
-				added_types[enum_name] = {}
-			}
-		}
-		for alias_name, type in odin_pkg.types {
-			if type.kind == .Ident && alias_name in added_types == false {
-				fmt.println("Generating", alias_name)
-				// fmt.printfln("%#v", type)
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[alias_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if alias_name in unresolved_types {
-					delete_key(&unresolved_types, alias_name)
-				}
-				type_name :=
+			case .Ident:
+				umka_type_name :=
 					type.names[0] in odin_to_umka ? odin_to_umka[type.names[0]].name : type.names[0]
-				fmt.fprintfln(f, `	%s* = %s`, alias_name, type_name)
-				added_types[alias_name] = {}
-			}
-		}
-		for distinct_name, type in odin_pkg.types {
-			if type.kind == .Distinct && distinct_name in added_types == false {
-				fmt.println("Generating", distinct_name)
-				// fmt.printfln("%#v", type)
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[distinct_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if distinct_name in unresolved_types {
-					delete_key(&unresolved_types, distinct_name)
-				}
-				type_name: string
+				fmt.fprintfln(f, `	%s* = %s`, type_name, umka_type_name)
+			case .Distinct:
+				umka_type_name: string
 				// type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
 				#partial switch type.base_type.kind {
 				case .Array:
 					base_type_name := type.base_type.base_type.names[0]
 					base_type_name =
 						base_type_name in odin_to_umka ? odin_to_umka[base_type_name].name : base_type_name
-					type_name = fmt.aprintf("[%d]%s", type.base_type.length, base_type_name)
+					umka_type_name = fmt.aprintf("[%d]%s", type.base_type.length, base_type_name)
 				case .Bit_Set:
-					type_name = fmt.aprintf("[]%s", type.base_type.base_type.names[0])
+					umka_type_name = fmt.aprintf("[]%s", type.base_type.base_type.names[0])
 				case:
 					fmt.println(type.base_type)
 
 				}
-				fmt.fprintfln(f, `	%s* = %s`, distinct_name, type_name)
-				added_types[distinct_name] = {}
+				fmt.fprintfln(f, `	%s* = %s`, type_name, umka_type_name)
+			case:
+				continue
 			}
+			added_types[type_name] = {}
 		}
 		unresolved_count := len(unresolved_types)
 		fmt.printfln("Unresolved types:")
@@ -1193,7 +1136,6 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 		}
 	}
 	fmt.fprintln(f, `)`)
-
 	generate_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
 		#partial switch type.kind {
 		case .Quaternion_Lit:

@@ -31,22 +31,7 @@ main :: proc() {
 		odin_package_name = "example",
 		odin_file_name    = "bindings.odin",
 		umka_module_name  = "bindings.um",
-		ignore_types      = {
-			"warn_callback",
-			"umka_assert",
-			"main",
-			"Some_Struct",
-			"Some_Array",
-			"add",
-			"some_func",
-			"some_func2",
-			"some_func_without_args",
-			"print_cstring",
-			"print_string",
-			"print_some_struct",
-			"print_some_enum_value",
-			"print_some_array",
-		},
+		ignore_types      = {"warn_callback", "umka_assert", "main"},
 		// umka_modules_to_import = {"`c.um`"},
 	}
 
