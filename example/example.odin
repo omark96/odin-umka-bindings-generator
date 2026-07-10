@@ -94,11 +94,62 @@ Some_U8_Enum :: enum u8 {
 	D,
 }
 
+Some_Enum_With_Bitshift :: enum {
+	A = 1 << 0,
+	B = 1 << 1,
+	C = 1 << 2,
+}
+
+// SHARED :: #config(SHARED, true)
+Quaternion_Lit :: quaternion(real = 0.0, imag = 1, jmag = 2, kmag = 3)
+
+Struct_With_Quaternion :: struct {
+	quat: quaternion128,
+}
+
+CONST_STRUCT_WITH_QUATERNION :: Struct_With_Quaternion{quaternion(w = 4, x = 3, y = 2, z = 1)}
+
 // TODO:
 // Some_Bit_Set :: bit_set[0 ..< 10]
 // Some_Bit_Set2 :: bit_set[0 ..= 5]
 Some_Enum_Bit_Set :: bit_set[Some_Enum]
 Some_U8_Enum_Bit_Set :: bit_set[Some_U8_Enum;u8]
+
+Array_Lit :: [4]u8{255, 255, 255, 255}
+
+Struct_A :: struct {
+	a: int,
+}
+
+Struct_B :: struct {
+	b: f32,
+}
+
+Struct_C :: struct {
+	A: Struct_A,
+	B: Struct_B,
+	C: [3]f32,
+	D: [3]i32,
+	E: i32,
+}
+
+CONST_STRUCT_C :: Struct_C {
+	A = {a = 1},
+	B = Struct_B{b = 0.1},
+	C = {0.1, 0.2, 0.3},
+	D = [3]i32{1, 2, 3},
+	E = 320,
+}
+
+CONST_A :: Struct_A{1}
+
+CONST_STRUCT_C2 :: Struct_C {
+	CONST_A,
+	{1},
+	{0.11111, 0.22222, 0.33333},
+	[3]i32{111, 222, 333},
+	111111,
+}
 
 // Adds two integers
 add :: proc(a, b: int) -> int {

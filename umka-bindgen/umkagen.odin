@@ -1,11 +1,8 @@
 package umkagen
 
-import umka "../umka"
+import "base:builtin"
 import "base:runtime"
 import "core:fmt"
-import "core:log"
-import "core:mem"
-import "core:odin"
 import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
@@ -14,7 +11,6 @@ import "core:path/slashpath"
 import "core:slice"
 import "core:strconv"
 import "core:strings"
-import "vendor:raylib"
 
 
 Type_Kind :: enum {
@@ -45,6 +41,7 @@ Type_Kind :: enum {
 	Float_Lit,
 	Integer_Lit,
 	Bool_Lit,
+	Quaternion_Lit,
 	Matrix,
 	Ellipsis,
 }
@@ -100,6 +97,7 @@ init_default :: proc(arena_allocator: ^runtime.Arena = nil) {
 }
 
 generate :: proc() {
+
 	// r, w, pipe_err := os.pipe()
 	// if pipe_err != nil {
 	// 	fmt.eprintln("Pipe error:", pipe_err)
@@ -136,11 +134,17 @@ generate :: proc() {
 	for name, pkg in packages {
 		if pkg.generate {
 			generate_bindings(pkg, name)
-			generate_um_file(pkg, name)
-			if pkg.generate_umi {
-				generate_umi(pkg, name)
-				generate_umi_um_file(pkg, name)
-			}
+			output_file := fmt.aprintf("%s/%s", pkg.output_path, pkg.umka_module_name)
+			f, _ := os.open(output_file, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
+			generate_um_file(pkg, name, f)
+			os.close(f)
+		}
+		if pkg.generate_umi {
+			generate_umi(pkg, name)
+			output_file := fmt.aprintf("%s/umi/%s", pkg.output_path, pkg.umka_module_name)
+			f, _ := os.open(output_file, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
+			os.close(f)
+			generate_um_file(pkg, name, f)
 		}
 	}
 }
@@ -317,206 +321,6 @@ package %s
 	}
 }
 
-generate_umi_um_file :: proc(odin_pkg: Package, pkg_name: string) {
-	output_file := fmt.aprintf("%s/umi/%s", odin_pkg.output_path, odin_pkg.umka_module_name)
-	f, _ := os.open(output_file, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
-	defer os.close(f)
-
-	unresolved_types: map[string]struct{}
-	added_types: map[string]struct{}
-	prev_unresolved_count := 0
-
-	fmt.fprintln(f, `type (`)
-	for {
-		for struct_name, type in odin_pkg.types {
-			if type.kind == .Struct && struct_name in added_types == false {
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[struct_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if struct_name in unresolved_types {
-					delete_key(&unresolved_types, struct_name)
-				}
-				fmt.fprintfln(f, `	%s* = struct {{`, struct_name)
-				for field in type.fields {
-					fmt.fprintf(f, `				`)
-					for name, i in field.names {
-
-						type_name := umka_base_type_name(field.base_type^)
-						if i < len(field.names) - 1 {
-							fmt.fprintf(f, `%s,`, name == "type" ? "type_" : name)
-						} else {
-							fmt.fprintfln(f, `%s: %s`, name == "type" ? "type_" : name, type_name)
-						}
-					}
-				}
-				fmt.fprintfln(f, `	}}`)
-				added_types[struct_name] = {}
-			}
-		}
-		for array_name, type in odin_pkg.types {
-			if type.kind == .Array && array_name in added_types == false {
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[array_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if array_name in unresolved_types {
-					delete_key(&unresolved_types, array_name)
-				}
-				type_name :=
-					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
-				fmt.fprintfln(f, `	%s* = [%d]%s`, array_name, type.length, type_name)
-				added_types[array_name] = {}
-			}
-		}
-		for tag_expr_name, type in odin_pkg.types {
-			if type.base_type != nil &&
-			   type.base_type.kind == .Matrix &&
-			   tag_expr_name in added_types == false {
-				matrix_name := tag_expr_name
-				// dd(matrix_name)
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[matrix_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if matrix_name in unresolved_types {
-					delete_key(&unresolved_types, matrix_name)
-				}
-				type_name := type.base_type.base_type.names[0]
-				type_name = type_name in odin_to_umka ? odin_to_umka[type_name].name : type_name
-				fmt.fprintfln(f, `	%s* = [%d]%s`, matrix_name, type.base_type.length, type_name)
-				added_types[matrix_name] = {}
-			}
-		}
-		// TODO: Slices?
-		for enum_name, type in odin_pkg.types {
-			if type.kind == .Enum && enum_name in added_types == false {
-
-				backing_string :=
-					type.base_type.names[0] != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type.names[0]].name) : ""
-				fmt.fprintfln(f, `	%s* = enum %s{{`, enum_name, backing_string)
-				prev_val := -1
-				for field in type.fields {
-					fmt.fprintfln(f, `		%s = %d`, field.names[0], field.value)
-				}
-				fmt.fprintfln(f, `	}}`)
-				added_types[enum_name] = {}
-			}
-		}
-		for alias_name, type in odin_pkg.types {
-			if type.kind == .Ident && alias_name in added_types == false {
-				fmt.println("Generating", alias_name)
-				// fmt.printfln("%#v", type)
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[alias_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if alias_name in unresolved_types {
-					delete_key(&unresolved_types, alias_name)
-				}
-				type_name :=
-					type.names[0] in odin_to_umka ? odin_to_umka[type.names[0]].name : type.names[0]
-				fmt.fprintfln(f, `	%s* = %s`, alias_name, type_name)
-				added_types[alias_name] = {}
-			}
-		}
-		for distinct_name, type in odin_pkg.types {
-			if type.kind == .Distinct && distinct_name in added_types == false {
-				fmt.println("Generating", distinct_name)
-				// fmt.printfln("%#v", type)
-				unresolved_dependency := false
-				for dependency in type.dependencies {
-					if dependency in added_types == false {
-						unresolved_dependency = true
-						unresolved_types[distinct_name] = {}
-					}
-				}
-				if unresolved_dependency == true {
-					continue
-				} else if distinct_name in unresolved_types {
-					delete_key(&unresolved_types, distinct_name)
-				}
-				type_name: string
-				// type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
-				#partial switch type.base_type.kind {
-				case .Array:
-					base_type_name := type.base_type.base_type.names[0]
-					base_type_name =
-						base_type_name in odin_to_umka ? odin_to_umka[base_type_name].name : base_type_name
-					type_name = fmt.aprintf("[%d]%s", type.base_type.length, base_type_name)
-				case .Bit_Set:
-					type_name = fmt.aprintf("[]%s", type.base_type.base_type.names[0])
-				case:
-					fmt.println(type.base_type)
-
-				}
-				fmt.fprintfln(f, `	%s* = %s`, distinct_name, type_name)
-				added_types[distinct_name] = {}
-			}
-		}
-		unresolved_count := len(unresolved_types)
-		fmt.printfln("Unresolved types:")
-		for unresolved in unresolved_types {
-			// fmt.println(unresolved)
-			// fmt.printfln("%#v", odin_types[unresolved])
-		}
-		if unresolved_count == 0 {
-			break
-		} else {
-			assert(
-				prev_unresolved_count != unresolved_count,
-				fmt.aprintf("Unresolved types: %#v", unresolved_types),
-			)
-			prev_unresolved_count = unresolved_count
-		}
-	}
-	fmt.fprintln(f, `		)`)
-
-	for proc_name, type in odin_pkg.types {
-		if type.kind == .Proc {
-			fmt.fprintf(f, `fn um_%s*(`, proc_name)
-			if len(type.params) < 1 {
-				fmt.fprint(f, `)`)
-			}
-			for param, i in type.params {
-				param_type := umka_base_type_name(param.base_type^)
-				param_name := param.names[0] != "type" ? param.names[0] : "type_"
-				if i < len(type.params) - 1 {
-					fmt.fprintf(f, `%s: %s, `, param_name, param_type)
-				} else {
-					fmt.fprintf(f, `%s: %s)`, param_name, param_type)
-				}
-			}
-			if len(type.returns) > 0 {
-				return_type :=
-					type.returns[0].base_type.names[0] in odin_to_umka ? odin_to_umka[type.returns[0].base_type.names[0]].name : type.returns[0].base_type.names[0]
-				fmt.fprintf(f, `: %s`, return_type)
-			}
-			fmt.fprintfln(f, "")
-		}
-	}
-}
-
 add_package :: proc(name: string, pkg: Package) {
 	packages[name] = pkg
 }
@@ -588,7 +392,7 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 				type.dependencies[type.names[0]] = {}
 			}
 		}
-		if (type_name == "Rectangle") {
+		if (type_name == "Some_Enum_With_Bitshift") {
 			// dd(type_name, type)
 		}
 		// fmt.printfln("%#v", type)
@@ -705,13 +509,27 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			#partial switch type in field.derived_expr {
 			case ^ast.Field_Value:
 				{
-					val, _ = strconv.parse_int(type.value.derived_expr.(^ast.Basic_Lit).tok.text)
+					#partial switch value_type in type.value.derived_expr {
+					case ^ast.Basic_Lit:
+						val, _ = strconv.parse_int(
+							type.value.derived_expr.(^ast.Basic_Lit).tok.text,
+						)
+						codegen_enum_field.value = val
+					case ^ast.Binary_Expr:
+						left := value_type.left.derived_expr.(^ast.Basic_Lit)
+						right := value_type.right.derived_expr.(^ast.Basic_Lit)
+						codegen_enum_field.value = fmt.aprintf(
+							"%s %s %s",
+							left.tok.text,
+							value_type.op.text,
+							right.tok.text,
+						)
+					}
 					append(
 						&codegen_enum_field.names,
 						field.derived_expr.(^ast.Field_Value).field.derived_expr.(^ast.Ident).name,
 					)
 
-					codegen_enum_field.value = val
 				}
 			case ^ast.Ident:
 				{
@@ -739,28 +557,41 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Call_Expr:
 		// Currently only for #config, unsure if it works for other
 		// FOO :: #config(FOO, default)
-		define_name := get_type(type.args[0].derived_expr).names[0]
-		value_type := get_type(type.args[1].derived_expr)
-		codegen_type.kind = value_type.kind
-		if define_name in define_overrides {
-			value := define_overrides[define_name]
-			if codegen_type.kind == Type_Kind.Ident {
-				append(&codegen_type.names, value.(string))
-			} else {
-				codegen_type.value = value
-			}
-		} else {
-			if codegen_type.kind == Type_Kind.Ident {
-				if value_type.names[0] == "false" || value_type.names[0] == "true" {
-					codegen_type.kind = .Bool_Lit
-					codegen_type.value = value_type.names[0] == "true" ? true : false
+
+		#partial switch call_expr in type.expr.derived_expr {
+		case ^ast.Basic_Directive:
+			define_name := get_type(type.args[0].derived_expr).names[0]
+			value_type := get_type(type.args[1].derived_expr)
+			codegen_type.kind = value_type.kind
+			if define_name in define_overrides {
+				value := define_overrides[define_name]
+				if codegen_type.kind == Type_Kind.Ident {
+					append(&codegen_type.names, value.(string))
 				} else {
-					append(&codegen_type.names, value_type.names[0])
+					codegen_type.value = value
 				}
 			} else {
-				codegen_type.value = value_type.value
+				if codegen_type.kind == Type_Kind.Ident {
+					if value_type.names[0] == "false" || value_type.names[0] == "true" {
+						codegen_type.kind = .Bool_Lit
+						codegen_type.value = value_type.names[0] == "true" ? true : false
+					} else {
+						append(&codegen_type.names, value_type.names[0])
+					}
+				} else {
+					codegen_type.value = value_type.value
+				}
+			}
+		case ^ast.Ident:
+			if call_expr.name == "quaternion" {
+				codegen_type.kind = .Quaternion_Lit
+				for arg in type.args {
+					field := arg.derived_expr.(^ast.Field_Value)
+					append(&codegen_type.fields, get_type(field.value.derived_expr)^)
+				}
 			}
 		}
+
 	case ^ast.Binary_Expr:
 		// TODO! Range bit sets
 		// foo OP bar
@@ -782,13 +613,33 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Comp_Lit:
 		// FOO :: T{ ... }
 		codegen_type.kind = .Comp_Lit
-		type_name := type.type.derived_expr.(^ast.Ident).name
-		append(&codegen_type.names, type_name)
-		codegen_type.dependencies[type_name] = {}
+		if type.type != nil {
+			base_type := get_type(type.type.derived_expr)
+			if ident, ok := type.type.derived_expr.(^ast.Ident); ok {
+				append(&base_type.names, ident.name)
+			}
+			codegen_type.base_type = base_type
+		}
+
 		for elem in type.elems {
-			elem_type := get_type(elem.derived_expr)
+			elem_type: ^Type
+			#partial switch e in elem.derived_expr {
+			case ^ast.Field_Value:
+				field_value := elem.derived_expr.(^ast.Field_Value)
+				elem_type = get_type(field_value.value.derived_expr)
+			case ^ast.Ident:
+				elem_type = get_type(elem.derived_expr)
+				codegen_type.dependencies[elem_type.names[0]] = {}
+			case:
+				elem_type = get_type(elem.derived_expr)
+				for dependency in elem_type.dependencies {
+					codegen_type.dependencies[dependency] = {}
+				}
+			}
 			append(&codegen_type.fields, elem_type^)
 		}
+		a := 1
+	// dd(codegen_type)
 	// unimplemented(fmt.tprintf("Comp Lit type not implemented yet \n%#v", type))
 	case ^ast.Tag_Expr:
 		// for example #row_major in:
@@ -813,6 +664,8 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.base_type = get_type(type.elem.derived_expr)
 		codegen_type.length = columns * rows
 	case ^ast.Bit_Set_Type:
+		//TODO: Update enum to have a length indicating the range from smallest to largest
+		dd(type.elem.derived_expr)
 		codegen_type.kind = .Bit_Set
 		codegen_type.base_type = get_type(type.elem.derived_expr)
 		for dependency in codegen_type.base_type.dependencies {
@@ -930,6 +783,8 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 		name = fmt.aprintf("%s%s", "^", umka_base_type_name(base_type.base_type^))
 	case .Ellipsis:
 		name = fmt.aprintf("[]%s", umka_base_type_name(base_type.base_type^))
+	case .Quaternion_Lit:
+		name = "[4]real32"
 	case:
 		if len(base_type.names) == 0 {
 			// dd(base_type)
@@ -1154,11 +1009,7 @@ package %s
 	fmt.fprintln(f, `}`)
 }
 
-generate_um_file :: proc(odin_pkg: Package, pkg_name: string) {
-	output_file := fmt.aprintf("%s/%s", odin_pkg.output_path, odin_pkg.umka_module_name)
-	f, _ := os.open(output_file, os.O_WRONLY | os.O_CREATE | os.O_TRUNC)
-	defer os.close(f)
-
+generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 	unresolved_types: map[string]struct{}
 	added_types: map[string]struct{}
 	prev_unresolved_count := 0
@@ -1181,7 +1032,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string) {
 				}
 				fmt.fprintfln(f, `	%s* = struct {{`, struct_name)
 				for field in type.fields {
-					fmt.fprintf(f, `				`)
+					fmt.fprintf(f, `		`)
 					for name, i in field.names {
 
 						type_name := umka_base_type_name(field.base_type^)
@@ -1249,7 +1100,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string) {
 				fmt.fprintfln(f, `	%s* = enum %s{{`, enum_name, backing_string)
 				prev_val := -1
 				for field in type.fields {
-					fmt.fprintfln(f, `		%s = %d`, field.names[0], field.value)
+					fmt.fprintfln(f, `		%s = %v`, field.names[0], field.value)
 				}
 				fmt.fprintfln(f, `	}}`)
 				added_types[enum_name] = {}
@@ -1327,7 +1178,97 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string) {
 			prev_unresolved_count = unresolved_count
 		}
 	}
-	fmt.fprintln(f, `		)`)
+	fmt.fprintln(f, `)`)
+
+	generate_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
+		#partial switch type.kind {
+		case .Quaternion_Lit:
+			fallthrough
+		case .Comp_Lit:
+			return generate_comp_literal(type, pkg, depth)
+		case:
+			return fmt.aprint(type.value)
+		}
+	}
+	generate_comp_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
+		sb := strings.builder_make()
+		if base_type := type.base_type; base_type != nil {
+			#partial switch base_type.kind {
+			case .Array:
+				fmt.sbprintf(&sb, "%s", umka_base_type_name(base_type^))
+			case .Ident:
+				strings.write_string(&sb, base_type.names[0])
+			}
+			strings.write_string(&sb, " ")
+		}
+		strings.write_string(&sb, "{\n")
+		for field in type.fields {
+			strings.write_string(&sb, strings.repeat("\t", depth + 1))
+			#partial switch field.kind {
+			case .Quaternion_Lit:
+				fallthrough
+			case .Comp_Lit:
+				comp_lit := generate_comp_literal(field, pkg, depth + 1)
+				fmt.sbprintfln(&sb, "%s,", comp_lit)
+			case .Ident:
+				// fmt.sbprintfln(&sb, "%s,", field.names[0])
+				ident_value := generate_literal(pkg.types[field.names[0]], pkg, depth + 1)
+				fmt.sbprintfln(&sb, "%s,", ident_value)
+			case:
+				fmt.sbprintfln(&sb, "%s,", field.value)
+			}
+		}
+		strings.write_string(&sb, strings.repeat("\t", depth))
+		strings.write_string(&sb, "}")
+
+
+		return strings.to_string(sb)
+	}
+
+	prev_unresolved_count = 0
+	for {
+		for literal_name, literal in odin_pkg.types {
+			if literal.kind != .Comp_Lit &&
+			   literal.kind != .Bool_Lit &&
+			   literal.kind != .Basic_Lit &&
+			   literal.kind != .Float_Lit &&
+			   literal.kind != .String_Lit &&
+			   literal.kind != .Integer_Lit &&
+			   literal.kind != .Quaternion_Lit {
+				continue
+			}
+
+			if literal_name in added_types {
+				continue
+			}
+
+			unresolved_dependency := false
+			for dependency in literal.dependencies {
+				if dependency in added_types == false {
+					unresolved_dependency = true
+					unresolved_types[literal_name] = {}
+				}
+			}
+			if unresolved_dependency == true {
+				continue
+			} else if literal_name in unresolved_types {
+				delete_key(&unresolved_types, literal_name)
+			}
+			literal_value := generate_literal(literal, odin_pkg)
+			fmt.fprintfln(f, "%s := %s", literal_name, literal_value)
+			added_types[literal_name] = {}
+		}
+		unresolved_count := len(unresolved_types)
+		if unresolved_count == 0 {
+			break
+		} else {
+			assert(
+				prev_unresolved_count != unresolved_count,
+				fmt.aprintf("Unresolved types: %#v", unresolved_types),
+			)
+			prev_unresolved_count = unresolved_count
+		}
+	}
 
 	for proc_name, type in odin_pkg.types {
 		if type.kind == .Proc {

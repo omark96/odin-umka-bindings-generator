@@ -40,6 +40,18 @@
             }
         },
         {
+            "label": "Example - Debug",
+            "type": "shell",
+            "command": "odin build . -debug",
+            "options": {
+                "cwd": "${workspaceFolder}/example/bindings_generator"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
             "label": "Example - Run Example",
             "type": "shell",
             "command": "odin run .",
