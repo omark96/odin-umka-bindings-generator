@@ -64,6 +64,7 @@ Type :: struct {
 	pkg:          string,
 	kind:         Type_Kind,
 	base_type:    ^Type,
+	underlying:   ^Type,
 	names:        [dynamic]string,
 	fields:       [dynamic]Type,
 	params:       [dynamic]Type,
@@ -502,7 +503,9 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			append(&base_type.names, "int")
 			codegen_type.base_type = base_type
 		}
-		val := 0
+		val: i128 = 0
+		lowest: i128 = 1 << 64
+		highest: i128 = -1 << 64
 		for field in type.fields {
 			codegen_enum_field := new(Type)
 			codegen_enum_field = &{kind = .Field}
@@ -511,19 +514,22 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 				{
 					#partial switch value_type in type.value.derived_expr {
 					case ^ast.Basic_Lit:
-						val, _ = strconv.parse_int(
+						val, _ = strconv.parse_i128(
 							type.value.derived_expr.(^ast.Basic_Lit).tok.text,
 						)
-						codegen_enum_field.value = val
+						codegen_enum_field.value = int(val)
 					case ^ast.Binary_Expr:
-						left := value_type.left.derived_expr.(^ast.Basic_Lit)
-						right := value_type.right.derived_expr.(^ast.Basic_Lit)
-						codegen_enum_field.value = fmt.aprintf(
-							"%s %s %s",
-							left.tok.text,
-							value_type.op.text,
-							right.tok.text,
-						)
+						left := value_type.left.derived_expr.(^ast.Basic_Lit).tok.text
+						right := value_type.right.derived_expr.(^ast.Basic_Lit).tok.text
+						op := value_type.op.text
+						codegen_enum_field.value = fmt.aprintf("%s %s %s", left, op, right)
+
+						switch op {
+						case "<<":
+							left_val, left_ok := strconv.parse_uint(left)
+							right_val, right_ok := strconv.parse_uint(right)
+							val = i128(left_val << right_val)
+						}
 					}
 					append(
 						&codegen_enum_field.names,
@@ -534,13 +540,16 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			case ^ast.Ident:
 				{
 					append(&codegen_enum_field.names, type.derived_expr.(^ast.Ident).name)
-					codegen_enum_field.value = val
+					codegen_enum_field.value = int(val)
 
 				}
 			}
 			append(&codegen_type.fields, codegen_enum_field^)
+			lowest = val < lowest ? val : lowest
+			highest = val > highest ? val : highest
 			val += 1
 		}
+		codegen_type.length = int(highest - lowest) + 1
 	case ^ast.Ident:
 		codegen_type.kind = .Ident
 		append(&codegen_type.names, type.name)
@@ -665,9 +674,14 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.length = columns * rows
 	case ^ast.Bit_Set_Type:
 		//TODO: Update enum to have a length indicating the range from smallest to largest
-		dd(type.elem.derived_expr)
 		codegen_type.kind = .Bit_Set
-		codegen_type.base_type = get_type(type.elem.derived_expr)
+		base_type := get_type(type.elem.derived_expr)
+		codegen_type.base_type = base_type
+		// if type.underlying != nil do dd(get_type(type.underlying.derived_expr))
+		if base_type.kind == .Ident {
+			name := base_type.names[0]
+			codegen_type.dependencies[name] = {}
+		}
 		for dependency in codegen_type.base_type.dependencies {
 			if dependency not_in codegen_type.dependencies {
 				codegen_type.dependencies[dependency] = {}

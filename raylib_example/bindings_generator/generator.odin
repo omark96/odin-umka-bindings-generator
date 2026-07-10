@@ -1,6 +1,8 @@
 package generator
 
 import umkagen "../../umka-bindgen"
+import "core:fmt"
+import "core:mem"
 import "core:os"
 
 main :: proc() {

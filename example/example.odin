@@ -98,6 +98,9 @@ Some_Enum_With_Bitshift :: enum {
 	A = 1 << 0,
 	B = 1 << 1,
 	C = 1 << 2,
+	D,
+	// E = 1 << 33,
+	F,
 }
 
 // SHARED :: #config(SHARED, true)
@@ -110,10 +113,13 @@ Struct_With_Quaternion :: struct {
 CONST_STRUCT_WITH_QUATERNION :: Struct_With_Quaternion{quaternion(w = 4, x = 3, y = 2, z = 1)}
 
 // TODO:
-// Some_Bit_Set :: bit_set[0 ..< 10]
-// Some_Bit_Set2 :: bit_set[0 ..= 5]
+Some_Bit_Set_Exclusive_Range :: bit_set[0 ..< 10]
+Some_Bit_Set_Inclusive_Range :: bit_set[0 ..= 5]
+Some_Bit_Set_Range_Underlying :: bit_set[0 ..= 5;u16]
 Some_Enum_Bit_Set :: bit_set[Some_Enum]
 Some_U8_Enum_Bit_Set :: bit_set[Some_U8_Enum;u8]
+Some_U8_Enum_Bit_Set_U64_Backing :: bit_set[Some_U8_Enum;u64]
+Some_Enum_With_Bitshift_Bit_set :: bit_set[Some_Enum_With_Bitshift]
 
 Array_Lit :: [4]u8{255, 255, 255, 255}
 
@@ -190,6 +196,8 @@ print_some_array :: proc(a: Some_Array) {
 g_umka_ctx: ^umka.Umka
 
 main :: proc() {
+	my_bit_set := Some_U8_Enum_Bit_Set{.A, .B}
+
 	context.logger = log.create_console_logger()
 
 	fmt.println("Alloc")

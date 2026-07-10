@@ -81,6 +81,8 @@ packages := map[string]Package {
 Define_Value :: union {
 	i32,
 	int,
+	u32,
+	uint,
 	f32,
 	f64,
 	string,
