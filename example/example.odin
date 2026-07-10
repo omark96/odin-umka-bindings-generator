@@ -119,7 +119,7 @@ Some_Bit_Set_Range_Underlying :: bit_set[0 ..= 5;u16]
 Some_Enum_Bit_Set :: bit_set[Some_Enum]
 Some_U8_Enum_Bit_Set :: bit_set[Some_U8_Enum;u8]
 Some_U8_Enum_Bit_Set_U64_Backing :: bit_set[Some_U8_Enum;u64]
-Some_Enum_With_Bitshift_Bit_set :: bit_set[Some_Enum_With_Bitshift]
+Some_Enum_With_Bitshift_Bit_Set :: bit_set[Some_Enum_With_Bitshift]
 
 Array_Lit :: [4]u8{255, 255, 255, 255}
 

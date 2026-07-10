@@ -72,6 +72,7 @@ Type :: struct {
 	dependencies: map[string]struct{},
 	length:       int,
 	value:        Define_Value,
+	lowest:       int,
 	left:         ^Type,
 	right:        ^Type,
 }
@@ -550,6 +551,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			val += 1
 		}
 		codegen_type.length = int(highest - lowest) + 1
+		codegen_type.lowest = int(lowest)
 	case ^ast.Ident:
 		codegen_type.kind = .Ident
 		append(&codegen_type.names, type.name)
@@ -677,6 +679,9 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.kind = .Bit_Set
 		base_type := get_type(type.elem.derived_expr)
 		codegen_type.base_type = base_type
+		if type.underlying != nil {
+			codegen_type.underlying = get_type(type.underlying.derived_expr)
+		}
 		// if type.underlying != nil do dd(get_type(type.underlying.derived_expr))
 		if base_type.kind == .Ident {
 			name := base_type.names[0]
@@ -1114,6 +1119,18 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 
 				}
 				fmt.fprintfln(f, `	%s* = %s`, type_name, umka_type_name)
+			case .Bit_Set:
+				umka_type_name: string
+				// dd(type, type_name)
+				if type.underlying != nil {
+					umka_type_name = umka_base_type_name(type.underlying^)
+				} else {
+					umka_type_name = "uint8"
+				}
+				fmt.fprintfln(f, `	%s = struct {{
+		bits: %s
+	}}`, type_name, umka_type_name)
+
 			case:
 				continue
 			}
@@ -1156,6 +1173,9 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 				strings.write_string(&sb, base_type.names[0])
 			}
 			strings.write_string(&sb, " ")
+		}
+		if type.kind == .Quaternion_Lit {
+			strings.write_string(&sb, "[4]real32 ")
 		}
 		strings.write_string(&sb, "{\n")
 		for field in type.fields {
@@ -1224,6 +1244,35 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 			)
 			prev_unresolved_count = unresolved_count
 		}
+	}
+
+	for bitset_name, bitset in odin_pkg.types {
+		if bitset.kind != .Bit_Set do continue
+		param_type: string
+		lowest: int
+		if bitset.base_type.kind == .Ident {
+			enum_type := odin_pkg.types[bitset.base_type.names[0]]
+			param_type = bitset.base_type.names[0]
+			lowest = enum_type.lowest
+		} else {
+			param_type = "uint"
+			lowest, _ = strconv.parse_int(bitset.base_type.left.value.(string))
+		}
+
+		fmt.fprintfln(f, "fn (set: ^%s) add(val: %s) {{", bitset_name, param_type)
+		fmt.fprintfln(f, "\tset.bits = set.bits | (1 << (int(val) - %v))", lowest)
+		fmt.fprintln(f, "}")
+		fmt.fprintln(f)
+
+		fmt.fprintfln(f, "fn (set: ^%s) remove(val: %s) {{", bitset_name, param_type)
+		fmt.fprintfln(f, "\tset.bits = set.bits ~ (1 << (int(val) - %v))", lowest)
+		fmt.fprintln(f, "}")
+		fmt.fprintln(f)
+
+		fmt.fprintfln(f, "fn (set: ^%s) has(val: %s): bool {{", bitset_name, param_type)
+		fmt.fprintfln(f, "\treturn (set.bits & (1 << (int(val) - %v))) != 0", lowest)
+		fmt.fprintln(f, "}")
+		fmt.fprintln(f)
 	}
 
 	for proc_name, type in odin_pkg.types {
