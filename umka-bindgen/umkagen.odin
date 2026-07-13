@@ -29,6 +29,7 @@ Type_Kind :: enum {
 	Alias,
 	Distinct,
 	Binary_Expr,
+	Unary_Expr,
 	Comp_Lit,
 	Basic_Lit,
 	Tag_Expr,
@@ -44,6 +45,7 @@ Type_Kind :: enum {
 	Quaternion_Lit,
 	Matrix,
 	Ellipsis,
+	Implicit_Selector,
 }
 
 Package :: struct {
@@ -394,8 +396,8 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 				type.dependencies[type.names[0]] = {}
 			}
 		}
-		if (type_name == "Some_Enum_With_Bitshift") {
-			// dd(type_name, type)
+		if (type_name == "Struct_B") {
+			// dd(type.fields)
 		}
 		// fmt.printfln("%#v", type)
 		odin_pkg.types[type_name] = type^
@@ -620,7 +622,10 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			}
 		}
 		codegen_type.value = type.op.text
-
+	case ^ast.Unary_Expr:
+		codegen_type.kind = .Unary_Expr
+		codegen_type.value = type.op.text
+		codegen_type.base_type = get_type(type.expr.derived_expr)
 	case ^ast.Comp_Lit:
 		// FOO :: T{ ... }
 		codegen_type.kind = .Comp_Lit
@@ -641,6 +646,8 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			case ^ast.Ident:
 				elem_type = get_type(elem.derived_expr)
 				codegen_type.dependencies[elem_type.names[0]] = {}
+			case ^ast.Implicit_Selector_Expr:
+				elem_type = get_type(e.derived_expr)
 			case:
 				elem_type = get_type(elem.derived_expr)
 				for dependency in elem_type.dependencies {
@@ -652,6 +659,9 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		a := 1
 	// dd(codegen_type)
 	// unimplemented(fmt.tprintf("Comp Lit type not implemented yet \n%#v", type))
+	case ^ast.Implicit_Selector_Expr:
+		codegen_type.kind = .Implicit_Selector
+		codegen_type.value = type.field.name
 	case ^ast.Tag_Expr:
 		// for example #row_major in:
 		// Foo :: #row_major matrix[4,4]f32
@@ -804,14 +814,17 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 		name = fmt.aprintf("[]%s", umka_base_type_name(base_type.base_type^))
 	case .Quaternion_Lit:
 		name = "[4]real32"
+	case .Ident:
+		pkg_prefix := base_type.pkg == "" ? "" : fmt.aprintf("%s::", base_type.pkg)
+		name = fmt.aprintf("%s%s", pkg_prefix, base_type.names[0])
 	case:
 		if len(base_type.names) == 0 {
 			// dd(base_type)
 		}
 		name = base_type.names[0]
-		if name == "type" {
-			name = "type_"
-		}
+	}
+	if name == "type" {
+		name = "type_"
 	}
 	return name in odin_to_umka ? odin_to_umka[name].name : name
 }
@@ -1068,14 +1081,9 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 
 						umka_type_name := umka_base_type_name(field.base_type^)
 						if i < len(field.names) - 1 {
-							fmt.fprintf(f, `%s,`, name == "type" ? "type_" : name)
+							fmt.fprintf(f, `%s,`, name)
 						} else {
-							fmt.fprintfln(
-								f,
-								`%s: %s`,
-								name == "type" ? "type_" : name,
-								umka_type_name,
-							)
+							fmt.fprintfln(f, `%s: %s`, name, umka_type_name)
 						}
 					}
 				}
@@ -1159,6 +1167,9 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 			fallthrough
 		case .Comp_Lit:
 			return generate_comp_literal(type, pkg, depth)
+		case .Unary_Expr:
+			dd(type)
+			return fmt.aprintf("%s%s", type.value, generate_literal(type.base_type^, pkg, 0))
 		case:
 			return fmt.aprint(type.value)
 		}
@@ -1177,21 +1188,61 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 		if type.kind == .Quaternion_Lit {
 			strings.write_string(&sb, "[4]real32 ")
 		}
+		// if type.base_type != nil && type.base_type.kind == .Bit_Set do dd(type)
 		strings.write_string(&sb, "{\n")
-		for field in type.fields {
+		enum_name: string
+		if type.base_type != nil && type.base_type.names != nil {
+			base_type := pkg.types[type.base_type.names[0]]
+			if base_type.kind == .Bit_Set {
+				enum_name = base_type.base_type.names[0]
+			}
+		}
+
+		for field, index in type.fields {
 			strings.write_string(&sb, strings.repeat("\t", depth + 1))
-			#partial switch field.kind {
-			case .Quaternion_Lit:
-				fallthrough
-			case .Comp_Lit:
-				comp_lit := generate_comp_literal(field, pkg, depth + 1)
-				fmt.sbprintfln(&sb, "%s,", comp_lit)
-			case .Ident:
-				// fmt.sbprintfln(&sb, "%s,", field.names[0])
-				ident_value := generate_literal(pkg.types[field.names[0]], pkg, depth + 1)
-				fmt.sbprintfln(&sb, "%s,", ident_value)
-			case:
-				fmt.sbprintfln(&sb, "%s,", field.value)
+			if enum_name != "" {
+				bitset_enum := pkg.types[enum_name]
+				identifier: string
+				if field.pkg == "" {
+					identifier = fmt.aprintf("%s.%s", enum_name, field.value)
+				} else {
+					identifier = fmt.aprintf("%s.%s", enum_name, field.names[0])
+				}
+				fmt.sbprintf(&sb, "1 << (int(%s) - %d)", identifier, bitset_enum.lowest)
+				if index < len(type.fields) - 1 {
+					fmt.sbprintln(&sb, " |")
+				} else {
+					fmt.sbprintln(&sb)
+				}
+			} else {
+				#partial switch field.kind {
+				case .Quaternion_Lit:
+					fallthrough
+				case .Comp_Lit:
+					comp_lit := generate_comp_literal(field, pkg, depth + 1)
+					fmt.sbprintfln(&sb, "%s,", comp_lit)
+				case .Ident:
+					ident_value: string
+					if field.names[0] in pkg.types && field.pkg == "" {
+						ident_value = generate_literal(pkg.types[field.names[0]], pkg, depth + 1)
+					} else {
+						pkg_string: string
+						if field.pkg == "" {
+							pkg_string = ""
+						} else if field.pkg in pkg.types {
+							pkg_string = fmt.aprintf("%s.", field.pkg)
+						} else {
+							pkg_string = fmt.aprintf("%s::", field.pkg)
+						}
+						ident_value = fmt.aprintf("%s%s", pkg_string, field.names[0])
+					}
+					fmt.sbprintfln(&sb, "%s,", ident_value)
+				case .Implicit_Selector:
+					fmt.sbprintfln(&sb, ".%s,", field.value)
+				case:
+					fmt.sbprintfln(&sb, "%s,", field.value)
+				}
+
 			}
 		}
 		strings.write_string(&sb, strings.repeat("\t", depth))
@@ -1265,7 +1316,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 		fmt.fprintln(f)
 
 		fmt.fprintfln(f, "fn (set: ^%s) remove(val: %s) {{", bitset_name, param_type)
-		fmt.fprintfln(f, "\tset.bits = set.bits ~ (1 << (int(val) - %v))", lowest)
+		fmt.fprintfln(f, "\tset.bits = set.bits &~ (1 << (int(val) - %v))", lowest)
 		fmt.fprintln(f, "}")
 		fmt.fprintln(f)
 

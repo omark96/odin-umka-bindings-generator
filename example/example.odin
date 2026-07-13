@@ -6,6 +6,7 @@ import "core:c"
 import "core:c/libc"
 import "core:fmt"
 import "core:log"
+import "core:math"
 import "core:time"
 
 // SOME_CONSTANT :: 'a' // TODO: Constants
@@ -121,6 +122,8 @@ Some_U8_Enum_Bit_Set :: bit_set[Some_U8_Enum;u8]
 Some_U8_Enum_Bit_Set_U64_Backing :: bit_set[Some_U8_Enum;u64]
 Some_Enum_With_Bitshift_Bit_Set :: bit_set[Some_Enum_With_Bitshift]
 
+Some_Enum_Bit_Set_Lit :: Some_Enum_Bit_Set{Some_Enum.A, .B}
+
 Array_Lit :: [4]u8{255, 255, 255, 255}
 
 Struct_A :: struct {
@@ -139,8 +142,14 @@ Struct_C :: struct {
 	E: i32,
 }
 
+Struct_D :: struct {
+	from_another_package: c.int,
+	pi:                   f32,
+	enum_value:           Some_Enum,
+}
+
 CONST_STRUCT_C :: Struct_C {
-	A = {a = 1},
+	A = {a = -1},
 	B = Struct_B{b = 0.1},
 	C = {0.1, 0.2, 0.3},
 	D = [3]i32{1, 2, 3},
@@ -156,6 +165,8 @@ CONST_STRUCT_C2 :: Struct_C {
 	[3]i32{111, 222, 333},
 	111111,
 }
+
+CONST_STRUCT_D :: Struct_D{1, math.PI, Some_Enum.A}
 
 // Adds two integers
 add :: proc(a, b: int) -> int {
