@@ -3,6 +3,7 @@ package umkagen
 import "base:builtin"
 import "base:runtime"
 import "core:fmt"
+import "core:odin"
 import "core:odin/ast"
 import "core:odin/parser"
 import "core:os"
@@ -396,7 +397,8 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 				type.dependencies[type.names[0]] = {}
 			}
 		}
-		if (type_name == "Struct_B") {
+		if (type_name == "CONST_STRUCT_C") {
+			// dd(type.fields[0].fields[0])
 			// dd(type.fields)
 		}
 		// fmt.printfln("%#v", type)
@@ -626,6 +628,11 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.kind = .Unary_Expr
 		codegen_type.value = type.op.text
 		codegen_type.base_type = get_type(type.expr.derived_expr)
+	case ^ast.Paren_Expr:
+		unimplemented("Todo: Paren_Expr")
+	case ^ast.Field_Value:
+		field_value := type.derived_expr.(^ast.Field_Value)
+		codegen_type = get_type(field_value.value.derived_expr)
 	case ^ast.Comp_Lit:
 		// FOO :: T{ ... }
 		codegen_type.kind = .Comp_Lit
@@ -638,21 +645,12 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 
 		for elem in type.elems {
-			elem_type: ^Type
-			#partial switch e in elem.derived_expr {
-			case ^ast.Field_Value:
-				field_value := elem.derived_expr.(^ast.Field_Value)
-				elem_type = get_type(field_value.value.derived_expr)
-			case ^ast.Ident:
-				elem_type = get_type(elem.derived_expr)
+			elem_type := get_type(elem.derived_expr)
+			for dependency in elem_type.dependencies {
+				codegen_type.dependencies[dependency] = {}
+			}
+			if elem_type.kind == .Ident {
 				codegen_type.dependencies[elem_type.names[0]] = {}
-			case ^ast.Implicit_Selector_Expr:
-				elem_type = get_type(e.derived_expr)
-			case:
-				elem_type = get_type(elem.derived_expr)
-				for dependency in elem_type.dependencies {
-					codegen_type.dependencies[dependency] = {}
-				}
 			}
 			append(&codegen_type.fields, elem_type^)
 		}
@@ -1163,12 +1161,9 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 	fmt.fprintln(f, `)`)
 	generate_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
 		#partial switch type.kind {
-		case .Quaternion_Lit:
-			fallthrough
-		case .Comp_Lit:
+		case .Quaternion_Lit, .Comp_Lit:
 			return generate_comp_literal(type, pkg, depth)
 		case .Unary_Expr:
-			dd(type)
 			return fmt.aprintf("%s%s", type.value, generate_literal(type.base_type^, pkg, 0))
 		case:
 			return fmt.aprint(type.value)
@@ -1216,11 +1211,16 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 				}
 			} else {
 				#partial switch field.kind {
-				case .Quaternion_Lit:
-					fallthrough
-				case .Comp_Lit:
+				case .Quaternion_Lit, .Comp_Lit:
 					comp_lit := generate_comp_literal(field, pkg, depth + 1)
 					fmt.sbprintfln(&sb, "%s,", comp_lit)
+				case .Unary_Expr:
+					fmt.sbprintfln(
+						&sb,
+						"%s%s",
+						field.value,
+						generate_literal(field.base_type^, pkg, 0),
+					)
 				case .Ident:
 					ident_value: string
 					if field.names[0] in pkg.types && field.pkg == "" {
@@ -1271,7 +1271,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 
 			unresolved_dependency := false
 			for dependency in literal.dependencies {
-				if dependency in added_types == false {
+				if dependency not_in added_types && dependency in odin_pkg.types {
 					unresolved_dependency = true
 					unresolved_types[literal_name] = {}
 				}
