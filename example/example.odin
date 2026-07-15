@@ -126,6 +126,14 @@ Some_Enum_Bit_Set_Lit :: Some_Enum_Bit_Set{Some_Enum.A, .B}
 
 Array_Lit :: [4]u8{255, 255, 255, 255}
 
+PAREN_CONST :: (3 - 1 - 3)
+PAREN_NESTED_PAREN_CONST :: ((3 - 1) + (3 - 1))
+PAREN_WITH_IDENTIFIER :: (PAREN_CONST - 1)
+
+ARRAY_LEN :: 3
+
+Array_With_Array_Len :: [ARRAY_LEN]int
+
 Struct_A :: struct {
 	a: int,
 }
@@ -151,7 +159,7 @@ Struct_D :: struct {
 CONST_STRUCT_C :: Struct_C {
 	A = {a = -1},
 	B = Struct_B{b = 0.1},
-	C = {0.1, 0.2, 0.3},
+	C = {0.1, (0.2 - 0.1), 0.3},
 	D = [3]i32{1, 2, 3},
 	E = 320,
 }

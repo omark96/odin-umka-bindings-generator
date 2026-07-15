@@ -36,8 +36,8 @@ odin_to_umka := map[string]Umka_Builtin_Type {
 	"cstring" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
 	"string" = Umka_Builtin_Type{name = "str", stack_slot = .ptrVal},
 	"quaternion128" = Umka_Builtin_Type{name = "[4]real32", stack_slot = .ptrVal},
-	"c.int" = Umka_Builtin_Type{name = "int32", stack_slot = .ptrVal},
-	"c.uint" = Umka_Builtin_Type{name = "uint32", stack_slot = .ptrVal},
+	"c::int" = Umka_Builtin_Type{name = "int32", stack_slot = .ptrVal},
+	"c::uint" = Umka_Builtin_Type{name = "uint32", stack_slot = .ptrVal},
 	// "any" = Umka_Builtin_Type{name = "any", stack_slot = .ptrVal},
 }
 

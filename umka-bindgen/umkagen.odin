@@ -31,6 +31,7 @@ Type_Kind :: enum {
 	Distinct,
 	Binary_Expr,
 	Unary_Expr,
+	Paren_Expr,
 	Comp_Lit,
 	Basic_Lit,
 	Tag_Expr,
@@ -197,7 +198,7 @@ package %s
 			fmt.fprintln(f, "@(export = true)")
 			fmt.fprintfln(
 				f,
-				`um_%s :: proc "c" (params: ^umka.StackSlot, result: ^umka.StackSlot) {{
+				`um_%s :: proc "c" (um_params: ^umka.StackSlot, result: ^umka.StackSlot) {{
 	context = runtime.default_context()
 `,
 				proc_name,
@@ -212,7 +213,7 @@ package %s
 				if base_type_name == "string" {
 					fmt.fprintfln(
 						f,
-						`	c_%s := cast(^cstring)api.umkaGetParam(params, %d)`,
+						`	c_%s := cast(^cstring)api.umkaGetParam(um_params, %d)`,
 						param.names[0],
 						i,
 					)
@@ -221,7 +222,7 @@ package %s
 
 					fmt.fprintfln(
 						f,
-						`	%s := cast(^%s)api.umkaGetParam(params, %d)`,
+						`	%s := cast(^%s)api.umkaGetParam(um_params, %d)`,
 						param.names[0],
 						base_type_name,
 						i,
@@ -290,7 +291,7 @@ package %s
 				ptr_string := stack_slot == .ptrVal ? "&" : ""
 				fmt.fprintfln(
 					f,
-					`	api.umkaGetResult(params, result).%s = cast(%s)%sres`,
+					`	api.umkaGetResult(um_params, result).%s = cast(%s)%sres`,
 					stack_slot,
 					return_type,
 					ptr_string,
@@ -397,7 +398,8 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 				type.dependencies[type.names[0]] = {}
 			}
 		}
-		if (type_name == "CONST_STRUCT_C") {
+		if (type_name == "Matrix") {
+			// dd(type.base_type)
 			// dd(type.fields[0].fields[0])
 			// dd(type.fields)
 		}
@@ -489,10 +491,15 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		base_type := get_type(type.elem.derived_expr)
 		codegen_type.base_type = base_type
 		if (type.len != nil) {
-			length_string := type.len.derived_expr.(^ast.Basic_Lit).tok.text
-			length, ok := strconv.parse_int(length_string)
 			codegen_type.kind = .Array
-			codegen_type.length = length
+			#partial switch len_type in type.len.derived_expr {
+			case ^ast.Basic_Lit:
+				length_string := type.len.derived_expr.(^ast.Basic_Lit).tok.text
+				length, ok := strconv.parse_int(length_string)
+				codegen_type.length = length
+			case ^ast.Ident:
+				append(&codegen_type.names, len_type.name)
+			}
 		} else {
 			codegen_type.kind = .Slice
 		}
@@ -623,13 +630,25 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 				codegen_type.dependencies[dependency] = {}
 			}
 		}
+		left := codegen_type.left
+		if left.kind == .Ident {
+			codegen_type.dependencies[left.names[0]] = {}
+		}
+		right := codegen_type.right
+		if right.kind == .Ident {
+			codegen_type.dependencies[right.names[0]] = {}
+		}
 		codegen_type.value = type.op.text
 	case ^ast.Unary_Expr:
 		codegen_type.kind = .Unary_Expr
 		codegen_type.value = type.op.text
 		codegen_type.base_type = get_type(type.expr.derived_expr)
 	case ^ast.Paren_Expr:
-		unimplemented("Todo: Paren_Expr")
+		codegen_type.kind = .Paren_Expr
+		codegen_type.base_type = get_type(type.expr.derived_expr)
+		for dependency in codegen_type.base_type.dependencies {
+			codegen_type.dependencies[dependency] = {}
+		}
 	case ^ast.Field_Value:
 		field_value := type.derived_expr.(^ast.Field_Value)
 		codegen_type = get_type(field_value.value.derived_expr)
@@ -805,7 +824,19 @@ umka_base_type_name :: proc(base_type: Type) -> string {
 	case .Pointer:
 		name = fmt.aprintf("^%s", umka_base_type_name(base_type.base_type^))
 	case .Array:
-		name = fmt.aprintf("[%d]%s", base_type.length, umka_base_type_name(base_type.base_type^))
+		if base_type.length > 0 {
+			name = fmt.aprintf(
+				"[%v]%s",
+				base_type.length,
+				umka_base_type_name(base_type.base_type^),
+			)
+		} else {
+			name = fmt.aprintf(
+				"[%v]%s",
+				base_type.names[0],
+				umka_base_type_name(base_type.base_type^),
+			)
+		}
 	case .MultiPointer:
 		name = fmt.aprintf("%s%s", "^", umka_base_type_name(base_type.base_type^))
 	case .Ellipsis:
@@ -1039,11 +1070,172 @@ package %s
 	fmt.fprintln(f, `}`)
 }
 
+generate_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
+	#partial switch type.kind {
+	case .Quaternion_Lit, .Comp_Lit:
+		return generate_comp_literal(type, pkg, depth)
+	case .Unary_Expr:
+		return fmt.aprintf("%s%s", type.value, generate_literal(type.base_type^, pkg))
+	case .Paren_Expr:
+		return fmt.aprintf("(%s)", generate_literal(type.base_type^, pkg))
+	case .Binary_Expr:
+		return fmt.aprintf(
+			"%s %s %s",
+			generate_literal(type.left^, pkg),
+			type.value,
+			generate_literal(type.right^, pkg),
+		)
+	case .Ident:
+		return type.names[0]
+	case:
+		return fmt.aprint(type.value)
+	}
+}
+generate_comp_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
+	sb := strings.builder_make()
+	if base_type := type.base_type; base_type != nil {
+		#partial switch base_type.kind {
+		case .Array:
+			fmt.sbprintf(&sb, "%s", umka_base_type_name(base_type^))
+		case .Ident:
+			strings.write_string(&sb, base_type.names[0])
+		}
+		strings.write_string(&sb, " ")
+	}
+	if type.kind == .Quaternion_Lit {
+		strings.write_string(&sb, "[4]real32 ")
+	}
+	// if type.base_type != nil && type.base_type.kind == .Bit_Set do dd(type)
+	strings.write_string(&sb, "{\n")
+	enum_name: string
+	if type.base_type != nil && type.base_type.names != nil {
+		base_type := pkg.types[type.base_type.names[0]]
+		if base_type.kind == .Bit_Set {
+			enum_name = base_type.base_type.names[0]
+		}
+	}
+
+	for field, index in type.fields {
+		strings.write_string(&sb, strings.repeat("\t", depth + 1))
+		if enum_name != "" {
+			bitset_enum := pkg.types[enum_name]
+			identifier: string
+			if field.pkg == "" {
+				identifier = fmt.aprintf("%s.%s", enum_name, field.value)
+			} else {
+				identifier = fmt.aprintf("%s.%s", enum_name, field.names[0])
+			}
+			fmt.sbprintf(&sb, "1 << (int(%s) - %d)", identifier, bitset_enum.lowest)
+			if index < len(type.fields) - 1 {
+				fmt.sbprintln(&sb, " |")
+			} else {
+				fmt.sbprintln(&sb)
+			}
+		} else {
+			#partial switch field.kind {
+			case .Quaternion_Lit, .Comp_Lit:
+				comp_lit := generate_comp_literal(field, pkg, depth + 1)
+				fmt.sbprintfln(&sb, "%s,", comp_lit)
+			case .Unary_Expr:
+				fmt.sbprintfln(
+					&sb,
+					"%s%s",
+					field.value,
+					generate_literal(field.base_type^, pkg, 0),
+				)
+			case .Paren_Expr:
+				fmt.sbprintfln(&sb, "(%s),", generate_literal(field.base_type^, pkg, 0))
+			case .Ident:
+				ident_value: string
+				if field.names[0] in pkg.types && field.pkg == "" {
+					ident_value = generate_literal(pkg.types[field.names[0]], pkg, depth + 1)
+				} else {
+					pkg_string: string
+					if field.pkg == "" {
+						pkg_string = ""
+					} else if field.pkg in pkg.types {
+						pkg_string = fmt.aprintf("%s.", field.pkg)
+					} else {
+						pkg_string = fmt.aprintf("%s::", field.pkg)
+					}
+					ident_value = fmt.aprintf("%s%s", pkg_string, field.names[0])
+				}
+				fmt.sbprintfln(&sb, "%s,", ident_value)
+			case .Implicit_Selector:
+				fmt.sbprintfln(&sb, ".%s,", field.value)
+			case:
+				fmt.sbprintfln(&sb, "%s,", field.value)
+			}
+
+		}
+	}
+	strings.write_string(&sb, strings.repeat("\t", depth))
+	strings.write_string(&sb, "}")
+
+
+	return strings.to_string(sb)
+}
+
+is_const :: proc(type: Type, odin_pkg: Package) -> bool {
+	#partial switch type.kind {
+	case .Basic_Lit, .Bool_Lit, .Float_Lit, .String_Lit, .Integer_Lit:
+		return true
+	case .Paren_Expr:
+		return is_const(type.base_type^, odin_pkg)
+	case .Binary_Expr:
+		return is_const(type.left^, odin_pkg) && is_const(type.right^, odin_pkg)
+	case .Ident:
+		return is_const(odin_pkg.types[type.names[0]], odin_pkg)
+	case:
+		return false
+	}
+}
+
 generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 	unresolved_types: map[string]struct{}
 	added_types: map[string]struct{}
 	prev_unresolved_count := 0
 
+
+	for {
+		for const_name, const in odin_pkg.types {
+			// if const_name == "PARAN_WITH_IDENTIFIER" do dd(const)
+			if !is_const(const, odin_pkg) do continue
+			if const_name in added_types do continue
+			unresolved_dependency := false
+			for dependency in const.dependencies {
+				if dependency in added_types == false {
+					unresolved_dependency = true
+					unresolved_types[const_name] = {}
+				}
+			}
+			if unresolved_dependency {
+				continue
+			}
+			if const_name in unresolved_types {
+				delete_key(&unresolved_types, const_name)
+			}
+			const_value := generate_literal(const, odin_pkg)
+			fmt.fprintfln(f, "const %s = %s", const_name, const_value)
+			added_types[const_name] = {}
+		}
+
+		unresolved_count := len(unresolved_types)
+		fmt.printfln("Unresolved types:")
+		for unresolved in unresolved_types {
+			fmt.println(unresolved)
+		}
+		if unresolved_count == 0 {
+			break
+		} else {
+			assert(
+				prev_unresolved_count != unresolved_count,
+				fmt.aprintf("Unresolved types: %#v", unresolved_types),
+			)
+			prev_unresolved_count = unresolved_count
+		}
+	}
+	fmt.fprintfln(f, "")
 	fmt.fprintln(f, `type (`)
 	for {
 		for type_name, type in odin_pkg.types {
@@ -1081,7 +1273,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 						if i < len(field.names) - 1 {
 							fmt.fprintf(f, `%s,`, name)
 						} else {
-							fmt.fprintfln(f, `%s: %s`, name, umka_type_name)
+							fmt.fprintfln(f, `%s: %s`, umka_base_type_name(field), umka_type_name)
 						}
 					}
 				}
@@ -1089,13 +1281,23 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 			case .Array:
 				umka_type_name :=
 					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
-				fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, type.length, umka_type_name)
+				if type.length > 0 {
+					fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, type.length, umka_type_name)
+				} else {
+					fmt.fprintfln(f, `	%s* = [%s]%s`, type_name, type.names[0], umka_type_name)
+				}
 			case .Matrix:
 				if type.base_type == nil do continue
 				umka_type_name := type.base_type.base_type.names[0]
 				umka_type_name =
 					umka_type_name in odin_to_umka ? odin_to_umka[umka_type_name].name : umka_type_name
 				fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, type.base_type.length, umka_type_name)
+			case .Tag_Expr:
+				base_type := type.base_type
+				#partial switch base_type.kind {
+				case .Matrix:
+					fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, base_type.length, "real32")
+				}
 			case .Enum:
 				backing_string :=
 					type.base_type.names[0] != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type.names[0]].name) : ""
@@ -1159,99 +1361,6 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 		}
 	}
 	fmt.fprintln(f, `)`)
-	generate_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
-		#partial switch type.kind {
-		case .Quaternion_Lit, .Comp_Lit:
-			return generate_comp_literal(type, pkg, depth)
-		case .Unary_Expr:
-			return fmt.aprintf("%s%s", type.value, generate_literal(type.base_type^, pkg, 0))
-		case:
-			return fmt.aprint(type.value)
-		}
-	}
-	generate_comp_literal :: proc(type: Type, pkg: Package, depth: int = 0) -> string {
-		sb := strings.builder_make()
-		if base_type := type.base_type; base_type != nil {
-			#partial switch base_type.kind {
-			case .Array:
-				fmt.sbprintf(&sb, "%s", umka_base_type_name(base_type^))
-			case .Ident:
-				strings.write_string(&sb, base_type.names[0])
-			}
-			strings.write_string(&sb, " ")
-		}
-		if type.kind == .Quaternion_Lit {
-			strings.write_string(&sb, "[4]real32 ")
-		}
-		// if type.base_type != nil && type.base_type.kind == .Bit_Set do dd(type)
-		strings.write_string(&sb, "{\n")
-		enum_name: string
-		if type.base_type != nil && type.base_type.names != nil {
-			base_type := pkg.types[type.base_type.names[0]]
-			if base_type.kind == .Bit_Set {
-				enum_name = base_type.base_type.names[0]
-			}
-		}
-
-		for field, index in type.fields {
-			strings.write_string(&sb, strings.repeat("\t", depth + 1))
-			if enum_name != "" {
-				bitset_enum := pkg.types[enum_name]
-				identifier: string
-				if field.pkg == "" {
-					identifier = fmt.aprintf("%s.%s", enum_name, field.value)
-				} else {
-					identifier = fmt.aprintf("%s.%s", enum_name, field.names[0])
-				}
-				fmt.sbprintf(&sb, "1 << (int(%s) - %d)", identifier, bitset_enum.lowest)
-				if index < len(type.fields) - 1 {
-					fmt.sbprintln(&sb, " |")
-				} else {
-					fmt.sbprintln(&sb)
-				}
-			} else {
-				#partial switch field.kind {
-				case .Quaternion_Lit, .Comp_Lit:
-					comp_lit := generate_comp_literal(field, pkg, depth + 1)
-					fmt.sbprintfln(&sb, "%s,", comp_lit)
-				case .Unary_Expr:
-					fmt.sbprintfln(
-						&sb,
-						"%s%s",
-						field.value,
-						generate_literal(field.base_type^, pkg, 0),
-					)
-				case .Ident:
-					ident_value: string
-					if field.names[0] in pkg.types && field.pkg == "" {
-						ident_value = generate_literal(pkg.types[field.names[0]], pkg, depth + 1)
-					} else {
-						pkg_string: string
-						if field.pkg == "" {
-							pkg_string = ""
-						} else if field.pkg in pkg.types {
-							pkg_string = fmt.aprintf("%s.", field.pkg)
-						} else {
-							pkg_string = fmt.aprintf("%s::", field.pkg)
-						}
-						ident_value = fmt.aprintf("%s%s", pkg_string, field.names[0])
-					}
-					fmt.sbprintfln(&sb, "%s,", ident_value)
-				case .Implicit_Selector:
-					fmt.sbprintfln(&sb, ".%s,", field.value)
-				case:
-					fmt.sbprintfln(&sb, "%s,", field.value)
-				}
-
-			}
-		}
-		strings.write_string(&sb, strings.repeat("\t", depth))
-		strings.write_string(&sb, "}")
-
-
-		return strings.to_string(sb)
-	}
-
 	prev_unresolved_count = 0
 	for {
 		for literal_name, literal in odin_pkg.types {
@@ -1282,7 +1391,9 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 				delete_key(&unresolved_types, literal_name)
 			}
 			literal_value := generate_literal(literal, odin_pkg)
+
 			fmt.fprintfln(f, "%s := %s", literal_name, literal_value)
+
 			added_types[literal_name] = {}
 		}
 		unresolved_count := len(unresolved_types)
