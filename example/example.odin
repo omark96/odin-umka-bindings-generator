@@ -122,17 +122,9 @@ Some_U8_Enum_Bit_Set :: bit_set[Some_U8_Enum;u8]
 Some_U8_Enum_Bit_Set_U64_Backing :: bit_set[Some_U8_Enum;u64]
 Some_Enum_With_Bitshift_Bit_Set :: bit_set[Some_Enum_With_Bitshift]
 
-Some_Enum_Bit_Set_Lit :: Some_Enum_Bit_Set{Some_Enum.A, .B}
-
-Array_Lit :: [4]u8{255, 255, 255, 255}
-
-PAREN_CONST :: (3 - 1 - 3)
-PAREN_NESTED_PAREN_CONST :: ((3 - 1) + (3 - 1))
-PAREN_WITH_IDENTIFIER :: (PAREN_CONST - 1)
-
-ARRAY_LEN :: 3
-
 Array_With_Array_Len :: [ARRAY_LEN]int
+DOUBLE_PRECISION :: true
+SOME_FLAG_CONTROLLED_TYPE :: [3]f64 when DOUBLE_PRECISION else [3]f32
 
 Struct_A :: struct {
 	a: int,
@@ -154,7 +146,18 @@ Struct_D :: struct {
 	from_another_package: c.int,
 	pi:                   f32,
 	enum_value:           Some_Enum,
+	some_bool:            bool,
 }
+
+Some_Enum_Bit_Set_Lit :: Some_Enum_Bit_Set{Some_Enum.A, .B}
+
+Array_Lit :: [4]u8{255, 255, 255, 255}
+
+PAREN_CONST :: (3 - 1 - 3)
+PAREN_NESTED_PAREN_CONST :: ((3 - 1) + (3 - 1))
+PAREN_WITH_IDENTIFIER :: (PAREN_CONST - 1)
+
+ARRAY_LEN :: 3
 
 CONST_STRUCT_C :: Struct_C {
 	A = {a = -1},
@@ -174,7 +177,9 @@ CONST_STRUCT_C2 :: Struct_C {
 	111111,
 }
 
-CONST_STRUCT_D :: Struct_D{1, math.PI, Some_Enum.A}
+CONST_STRUCT_D :: Struct_D{1, math.PI, Some_Enum.A, true}
+SOME_FLAG_CONTROLLED_CONST :: 1 when DOUBLE_PRECISION else 2
+SOME_CONFIG_FLAG_CONTROLLED_CONST :: #config(SOME_FLAG, false)
 
 // Adds two integers
 add :: proc(a, b: int) -> int {

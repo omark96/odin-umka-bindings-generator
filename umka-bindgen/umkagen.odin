@@ -48,6 +48,7 @@ Type_Kind :: enum {
 	Matrix,
 	Ellipsis,
 	Implicit_Selector,
+	Ternary_When_Expr,
 }
 
 Package :: struct {
@@ -79,6 +80,7 @@ Type :: struct {
 	lowest:       int,
 	left:         ^Type,
 	right:        ^Type,
+	cond:         ^Type,
 }
 
 StackSlot :: enum {
@@ -389,7 +391,7 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 		}
 		type_name := decl.names[0].derived_expr.(^ast.Ident).name
 		if slice.contains(odin_pkg.ignore_types, type_name) do return
-		// if type_name == "RAYLIB_SHARED" do fmt.printfln("%#v", decl.values[0].derived_expr)
+		// if type_name == "DOUBLE_PRECISION" do dd(decl.values[0].derived_expr)
 
 		type := get_type(decl.values[0].derived_expr)
 		if type.kind == .Ident {
@@ -503,6 +505,12 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		} else {
 			codegen_type.kind = .Slice
 		}
+
+	case ^ast.Ternary_When_Expr:
+		codegen_type.kind = .Ternary_When_Expr
+		codegen_type.left = get_type(type.x.derived_expr)
+		codegen_type.right = get_type(type.y.derived_expr)
+		codegen_type.cond = get_type(type.cond.derived_expr)
 
 	case ^ast.Enum_Type:
 		// foo :: enum { ... } or foo :: enum T { ... }
@@ -1185,10 +1193,54 @@ is_const :: proc(type: Type, odin_pkg: Package) -> bool {
 	case .Binary_Expr:
 		return is_const(type.left^, odin_pkg) && is_const(type.right^, odin_pkg)
 	case .Ident:
+		if type.names[0] == "false" || type.names[0] == "true" {
+			return true
+		}
 		return is_const(odin_pkg.types[type.names[0]], odin_pkg)
+	case .Ternary_When_Expr:
+		return is_const(type.left^, odin_pkg) && is_const(type.right^, odin_pkg)
 	case:
 		return false
 	}
+}
+
+is_proc :: proc(type: Type) -> bool {
+	return type.kind == .Proc
+}
+
+is_comp_lit :: proc(type: Type, odin_pkg: Package) -> bool {
+	#partial switch type.kind {
+	case .Comp_Lit, .Quaternion_Lit:
+		return true
+	case .Ternary_When_Expr:
+		return is_comp_lit(type.left^, odin_pkg) && is_const(type.right^, odin_pkg)
+	case:
+		return false
+	}
+}
+
+is_type :: proc(type: Type, odin_pkg: Package) -> bool {
+	if is_comp_lit(type, odin_pkg) do return false
+	if is_proc(type) do return false
+	if is_const(type, odin_pkg) do return false
+	return true
+}
+
+evaluate_cond :: proc(cond: Type, odin_pkg: Package) -> bool {
+	#partial switch cond.kind {
+	case .Ident:
+		if cond.names[0] == "true" do return true
+		if cond.names[0] == "false" do return false
+		if cond.names[0] in odin_pkg.types {
+			if odin_pkg.types[cond.names[0]].names[0] == "true" do return true
+			if odin_pkg.types[cond.names[0]].names[0] == "false" do return false
+		}
+	}
+	return false
+}
+
+generate_type :: proc(type: Type, odin_pkg: Package) -> string {
+	return ""
 }
 
 generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
@@ -1199,7 +1251,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 
 	for {
 		for const_name, const in odin_pkg.types {
-			// if const_name == "PARAN_WITH_IDENTIFIER" do dd(const)
+			// if const_name == "DOUBLE_PRECISION" do dd(const)
 			if !is_const(const, odin_pkg) do continue
 			if const_name in added_types do continue
 			unresolved_dependency := false
@@ -1215,8 +1267,18 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 			if const_name in unresolved_types {
 				delete_key(&unresolved_types, const_name)
 			}
-			const_value := generate_literal(const, odin_pkg)
-			fmt.fprintfln(f, "const %s = %s", const_name, const_value)
+			const_val: string
+			if const.kind == .Ternary_When_Expr {
+				cond_val := evaluate_cond(const.cond^, odin_pkg)
+				if cond_val {
+					const_val = generate_literal(const.left^, odin_pkg)
+				} else {
+					const_val = generate_literal(const.right^, odin_pkg)
+				}
+			} else {
+				const_val = generate_literal(const, odin_pkg)
+			}
+			fmt.fprintfln(f, "const %s = %s", const_name, const_val)
 			added_types[const_name] = {}
 		}
 
@@ -1239,16 +1301,9 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 	fmt.fprintln(f, `type (`)
 	for {
 		for type_name, type in odin_pkg.types {
-			if type.kind == .Comp_Lit ||
-			   type.kind == .Bool_Lit ||
-			   type.kind == .Basic_Lit ||
-			   type.kind == .Float_Lit ||
-			   type.kind == .String_Lit ||
-			   type.kind == .Integer_Lit ||
-			   type.kind == .Quaternion_Lit {
-				continue
-			}
+			if !is_type(type, odin_pkg) do continue
 			if type_name in added_types do continue
+
 			unresolved_dependency := false
 			for dependency in type.dependencies {
 				if dependency in added_types == false {
@@ -1338,6 +1393,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 				fmt.fprintfln(f, `	%s = struct {{
 		bits: %s
 	}}`, type_name, umka_type_name)
+			case .Ternary_When_Expr:
 
 			case:
 				continue
@@ -1364,13 +1420,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 	prev_unresolved_count = 0
 	for {
 		for literal_name, literal in odin_pkg.types {
-			if literal.kind != .Comp_Lit &&
-			   literal.kind != .Bool_Lit &&
-			   literal.kind != .Basic_Lit &&
-			   literal.kind != .Float_Lit &&
-			   literal.kind != .String_Lit &&
-			   literal.kind != .Integer_Lit &&
-			   literal.kind != .Quaternion_Lit {
+			if literal.kind != .Comp_Lit && literal.kind != .Quaternion_Lit {
 				continue
 			}
 
@@ -1438,7 +1488,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 	}
 
 	for proc_name, type in odin_pkg.types {
-		if type.kind == .Proc {
+		if is_proc(type) {
 			fmt.fprintf(f, `fn %s*(`, proc_name)
 			if len(type.params) < 1 {
 				fmt.fprint(f, `)`)
