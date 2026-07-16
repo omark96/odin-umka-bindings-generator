@@ -124,7 +124,7 @@ Some_Enum_With_Bitshift_Bit_Set :: bit_set[Some_Enum_With_Bitshift]
 
 Array_With_Array_Len :: [ARRAY_LEN]int
 DOUBLE_PRECISION :: true
-SOME_FLAG_CONTROLLED_TYPE :: [3]f64 when DOUBLE_PRECISION else [3]f32
+Some_Flag_Controlled_Type :: [3]f64 when DOUBLE_PRECISION else [3]f32
 
 Struct_A :: struct {
 	a: int,

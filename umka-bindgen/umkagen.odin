@@ -1239,8 +1239,97 @@ evaluate_cond :: proc(cond: Type, odin_pkg: Package) -> bool {
 	return false
 }
 
-generate_type :: proc(type: Type, odin_pkg: Package) -> string {
-	return ""
+generate_type :: proc(type: Type, odin_pkg: Package, depth: int = 0) -> string {
+	sb := strings.builder_make()
+	#partial switch type.kind {
+	case .Struct:
+		fmt.sbprintln(&sb, "struct {")
+		for field in type.fields {
+			strings.write_string(&sb, strings.repeat("\t", depth + 2))
+			for name, i in field.names {
+
+				umka_type_name := umka_base_type_name(field.base_type^)
+				if i < len(field.names) - 1 {
+					fmt.sbprintf(&sb, `%s,`, name)
+				} else {
+					fmt.sbprintfln(&sb, `%s: %s`, umka_base_type_name(field), umka_type_name)
+				}
+			}
+		}
+		strings.write_string(&sb, strings.repeat("\t", depth + 1))
+		fmt.sbprintln(&sb, "}")
+	case .Array:
+		umka_type_name :=
+			type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
+		if type.length > 0 {
+			fmt.sbprintfln(&sb, `[%d]%s`, type.length, umka_type_name)
+		} else {
+			fmt.sbprintfln(&sb, `[%s]%s`, type.names[0], umka_type_name)
+		}
+	case .Matrix:
+		if type.base_type != nil {
+			umka_type_name := type.base_type.base_type.names[0]
+			umka_type_name =
+				umka_type_name in odin_to_umka ? odin_to_umka[umka_type_name].name : umka_type_name
+			fmt.sbprintfln(&sb, `[%d]%s`, type.base_type.length, umka_type_name)
+		}
+	case .Tag_Expr:
+		base_type := type.base_type
+		#partial switch base_type.kind {
+		case .Matrix:
+			fmt.sbprintfln(&sb, `[%d]%s`, base_type.length, "real32")
+		}
+	case .Enum:
+		backing_string :=
+			type.base_type.names[0] != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type.names[0]].name) : ""
+		fmt.sbprintfln(&sb, `enum %s{{`, backing_string)
+		prev_val := -1
+		for field in type.fields {
+			strings.write_string(&sb, strings.repeat("\t", depth + 2))
+			fmt.sbprintfln(&sb, `%s = %v`, field.names[0], field.value)
+		}
+		strings.write_string(&sb, strings.repeat("\t", depth + 1))
+		fmt.sbprintln(&sb, "}")
+	case .Ident:
+		umka_type_name :=
+			type.names[0] in odin_to_umka ? odin_to_umka[type.names[0]].name : type.names[0]
+		fmt.sbprintfln(&sb, ` %s`, umka_type_name)
+	case .Distinct:
+		umka_type_name: string
+		// type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
+		#partial switch type.base_type.kind {
+		case .Array:
+			base_type_name := type.base_type.base_type.names[0]
+			base_type_name =
+				base_type_name in odin_to_umka ? odin_to_umka[base_type_name].name : base_type_name
+			umka_type_name = fmt.aprintf("[%d]%s", type.base_type.length, base_type_name)
+		case .Bit_Set:
+			umka_type_name = fmt.aprintf("[]%s", type.base_type.base_type.names[0])
+		case:
+			fmt.println(type.base_type)
+
+		}
+		fmt.sbprintfln(&sb, `%s`, umka_type_name)
+	case .Bit_Set:
+		umka_type_name: string
+		// dd(type, type_name)
+		if type.underlying != nil {
+			umka_type_name = umka_base_type_name(type.underlying^)
+		} else {
+			umka_type_name = "uint8"
+		}
+		fmt.sbprintfln(&sb, `struct {{
+		bits: %s
+	}}`, umka_type_name)
+	case .Ternary_When_Expr:
+		cond_val := evaluate_cond(type.cond^, odin_pkg)
+		if cond_val {
+			strings.write_string(&sb, generate_type(type.left^, odin_pkg, depth))
+		} else {
+			strings.write_string(&sb, generate_type(type.right^, odin_pkg, depth))
+		}
+	}
+	return strings.to_string(sb)
 }
 
 generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
@@ -1317,87 +1406,7 @@ generate_um_file :: proc(odin_pkg: Package, pkg_name: string, f: ^os.File) {
 			if type_name in unresolved_types {
 				delete_key(&unresolved_types, type_name)
 			}
-			#partial switch type.kind {
-			case .Struct:
-				fmt.fprintfln(f, `	%s* = struct {{`, type_name)
-				for field in type.fields {
-					fmt.fprintf(f, `		`)
-					for name, i in field.names {
-
-						umka_type_name := umka_base_type_name(field.base_type^)
-						if i < len(field.names) - 1 {
-							fmt.fprintf(f, `%s,`, name)
-						} else {
-							fmt.fprintfln(f, `%s: %s`, umka_base_type_name(field), umka_type_name)
-						}
-					}
-				}
-				fmt.fprintfln(f, `	}}`)
-			case .Array:
-				umka_type_name :=
-					type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
-				if type.length > 0 {
-					fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, type.length, umka_type_name)
-				} else {
-					fmt.fprintfln(f, `	%s* = [%s]%s`, type_name, type.names[0], umka_type_name)
-				}
-			case .Matrix:
-				if type.base_type == nil do continue
-				umka_type_name := type.base_type.base_type.names[0]
-				umka_type_name =
-					umka_type_name in odin_to_umka ? odin_to_umka[umka_type_name].name : umka_type_name
-				fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, type.base_type.length, umka_type_name)
-			case .Tag_Expr:
-				base_type := type.base_type
-				#partial switch base_type.kind {
-				case .Matrix:
-					fmt.fprintfln(f, `	%s* = [%d]%s`, type_name, base_type.length, "real32")
-				}
-			case .Enum:
-				backing_string :=
-					type.base_type.names[0] != "int" ? fmt.tprintf("(%s) ", odin_to_umka[type.base_type.names[0]].name) : ""
-				fmt.fprintfln(f, `	%s* = enum %s{{`, type_name, backing_string)
-				prev_val := -1
-				for field in type.fields {
-					fmt.fprintfln(f, `		%s = %v`, field.names[0], field.value)
-				}
-				fmt.fprintfln(f, `	}}`)
-			case .Ident:
-				umka_type_name :=
-					type.names[0] in odin_to_umka ? odin_to_umka[type.names[0]].name : type.names[0]
-				fmt.fprintfln(f, `	%s* = %s`, type_name, umka_type_name)
-			case .Distinct:
-				umka_type_name: string
-				// type.base_type.names[0] in odin_to_umka ? odin_to_umka[type.base_type.names[0]].name : type.base_type.names[0]
-				#partial switch type.base_type.kind {
-				case .Array:
-					base_type_name := type.base_type.base_type.names[0]
-					base_type_name =
-						base_type_name in odin_to_umka ? odin_to_umka[base_type_name].name : base_type_name
-					umka_type_name = fmt.aprintf("[%d]%s", type.base_type.length, base_type_name)
-				case .Bit_Set:
-					umka_type_name = fmt.aprintf("[]%s", type.base_type.base_type.names[0])
-				case:
-					fmt.println(type.base_type)
-
-				}
-				fmt.fprintfln(f, `	%s* = %s`, type_name, umka_type_name)
-			case .Bit_Set:
-				umka_type_name: string
-				// dd(type, type_name)
-				if type.underlying != nil {
-					umka_type_name = umka_base_type_name(type.underlying^)
-				} else {
-					umka_type_name = "uint8"
-				}
-				fmt.fprintfln(f, `	%s = struct {{
-		bits: %s
-	}}`, type_name, umka_type_name)
-			case .Ternary_When_Expr:
-
-			case:
-				continue
-			}
+			fmt.fprintfln(f, `	%s = %s`, type_name, generate_type(type, odin_pkg))
 			added_types[type_name] = {}
 		}
 		unresolved_count := len(unresolved_types)
