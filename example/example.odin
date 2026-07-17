@@ -149,6 +149,14 @@ Struct_D :: struct {
 	some_bool:            bool,
 }
 
+Some_Bit_Field :: bit_field u16 {
+	x: i32       | 3,
+	y: u16       | 2 + 3,
+	z: Some_Enum | Some_Enum.B,
+	w: bool      | 2 when DOUBLE_PRECISION else 1,
+}
+
+
 Some_Enum_Bit_Set_Lit :: Some_Enum_Bit_Set{Some_Enum.A, .B}
 
 Array_Lit :: [4]u8{255, 255, 255, 255}

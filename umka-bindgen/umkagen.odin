@@ -49,6 +49,8 @@ Type_Kind :: enum {
 	Ellipsis,
 	Implicit_Selector,
 	Ternary_When_Expr,
+	Bit_Field,
+	Bit_Field_Field,
 }
 
 Package :: struct {
@@ -81,6 +83,7 @@ Type :: struct {
 	left:         ^Type,
 	right:        ^Type,
 	cond:         ^Type,
+	bit_size:     ^Type,
 }
 
 StackSlot :: enum {
@@ -393,7 +396,7 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 		if slice.contains(odin_pkg.ignore_types, type_name) do return
 		// if type_name == "DOUBLE_PRECISION" do dd(decl.values[0].derived_expr)
 
-		type := get_type(decl.values[0].derived_expr)
+		type := get_type(decl.values[0])
 		if type.kind == .Ident {
 			if !(type.names[0] in packages["builtin"].types) &&
 			   !slice.contains(keywords, type.names[0]) {
@@ -419,11 +422,11 @@ get_types :: proc(stmt: ^ast.Stmt, odin_pkg: ^Package) {
 	}
 }
 
-get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
+get_type :: proc(expr: ^ast.Expr) -> ^Type {
 	codegen_type := new(Type)
 	ok: bool
 
-	#partial switch type in derived_expr {
+	#partial switch type in expr.derived_expr {
 	case ^ast.Basic_Lit:
 		// Integer, // 12345
 		// Float,   // 123.45
@@ -445,12 +448,12 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.value = type.tok.text
 	case ^ast.Pointer_Type:
 		codegen_type.kind = .Pointer
-		codegen_type.base_type = get_type(type.elem.derived_expr)
+		codegen_type.base_type = get_type(type.elem)
 		codegen_type.dependencies = codegen_type.base_type.dependencies
 	case ^ast.Multi_Pointer_Type:
 		// [^]T
 		codegen_type.kind = .MultiPointer
-		base_type := get_type(type.elem.derived_expr)
+		base_type := get_type(type.elem)
 		codegen_type.base_type = base_type
 		codegen_type.dependencies = base_type.dependencies
 	case ^ast.Selector_Expr:
@@ -465,7 +468,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 			codegen_field := Type {
 				kind = .Field,
 			}
-			base_type := get_type(field.type.derived_expr)
+			base_type := get_type(field.type)
 			if base_type.pkg == "" &&
 			   len(base_type.names) > 0 &&
 			   !(base_type.names[0] in packages["builtin"].types) {
@@ -490,7 +493,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 	case ^ast.Array_Type:
 		// [N]T or []T
-		base_type := get_type(type.elem.derived_expr)
+		base_type := get_type(type.elem)
 		codegen_type.base_type = base_type
 		if (type.len != nil) {
 			codegen_type.kind = .Array
@@ -508,15 +511,15 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 
 	case ^ast.Ternary_When_Expr:
 		codegen_type.kind = .Ternary_When_Expr
-		codegen_type.left = get_type(type.x.derived_expr)
-		codegen_type.right = get_type(type.y.derived_expr)
-		codegen_type.cond = get_type(type.cond.derived_expr)
+		codegen_type.left = get_type(type.x)
+		codegen_type.right = get_type(type.y)
+		codegen_type.cond = get_type(type.cond)
 
 	case ^ast.Enum_Type:
 		// foo :: enum { ... } or foo :: enum T { ... }
 		codegen_type.kind = .Enum
 		if type.base_type != nil {
-			codegen_type.base_type = get_type(type.base_type.derived_expr)
+			codegen_type.base_type = get_type(type.base_type)
 		} else {
 			base_type := new(Type)
 			base_type.kind = .Builtin
@@ -577,7 +580,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Distinct_Type:
 		// foo :: distinct T
 		codegen_type.kind = .Distinct
-		codegen_type.base_type = get_type(type.type.derived_expr)
+		codegen_type.base_type = get_type(type.type)
 	case ^ast.Proc_Type:
 		codegen_type.kind = .Unimplemented
 		unimplemented(fmt.tprintf("Proc Type not implemented yet \n%#v", type))
@@ -590,8 +593,8 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 
 		#partial switch call_expr in type.expr.derived_expr {
 		case ^ast.Basic_Directive:
-			define_name := get_type(type.args[0].derived_expr).names[0]
-			value_type := get_type(type.args[1].derived_expr)
+			define_name := get_type(type.args[0]).names[0]
+			value_type := get_type(type.args[1])
 			codegen_type.kind = value_type.kind
 			if define_name in define_overrides {
 				value := define_overrides[define_name]
@@ -617,7 +620,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 				codegen_type.kind = .Quaternion_Lit
 				for arg in type.args {
 					field := arg.derived_expr.(^ast.Field_Value)
-					append(&codegen_type.fields, get_type(field.value.derived_expr)^)
+					append(&codegen_type.fields, get_type(field.value)^)
 				}
 			}
 		}
@@ -626,8 +629,8 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		// TODO! Range bit sets
 		// foo OP bar
 		codegen_type.kind = .Binary_Expr
-		codegen_type.left = get_type(type.left.derived_expr)
-		codegen_type.right = get_type(type.right.derived_expr)
+		codegen_type.left = get_type(type.left)
+		codegen_type.right = get_type(type.right)
 		for dependency in codegen_type.left.dependencies {
 			if dependency not_in codegen_type.dependencies {
 				codegen_type.dependencies[dependency] = {}
@@ -650,21 +653,21 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 	case ^ast.Unary_Expr:
 		codegen_type.kind = .Unary_Expr
 		codegen_type.value = type.op.text
-		codegen_type.base_type = get_type(type.expr.derived_expr)
+		codegen_type.base_type = get_type(type.expr)
 	case ^ast.Paren_Expr:
 		codegen_type.kind = .Paren_Expr
-		codegen_type.base_type = get_type(type.expr.derived_expr)
+		codegen_type.base_type = get_type(type.expr)
 		for dependency in codegen_type.base_type.dependencies {
 			codegen_type.dependencies[dependency] = {}
 		}
 	case ^ast.Field_Value:
 		field_value := type.derived_expr.(^ast.Field_Value)
-		codegen_type = get_type(field_value.value.derived_expr)
+		codegen_type = get_type(field_value.value)
 	case ^ast.Comp_Lit:
 		// FOO :: T{ ... }
 		codegen_type.kind = .Comp_Lit
 		if type.type != nil {
-			base_type := get_type(type.type.derived_expr)
+			base_type := get_type(type.type)
 			if ident, ok := type.type.derived_expr.(^ast.Ident); ok {
 				append(&base_type.names, ident.name)
 			}
@@ -672,7 +675,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 
 		for elem in type.elems {
-			elem_type := get_type(elem.derived_expr)
+			elem_type := get_type(elem)
 			for dependency in elem_type.dependencies {
 				codegen_type.dependencies[dependency] = {}
 			}
@@ -692,7 +695,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		// Foo :: #row_major matrix[4,4]f32
 		codegen_type.kind = .Tag_Expr
 		append(&codegen_type.names, type.name)
-		codegen_type.base_type = get_type(type.expr.derived_expr)
+		codegen_type.base_type = get_type(type.expr)
 		fmt.printfln("%#v", codegen_type)
 	// fmt.println(size_of(raylib.Matrix))
 	// matrix_type := type.expr.derived_expr.(^ast.Matrix_Type)
@@ -707,15 +710,15 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		codegen_type.kind = .Matrix
 		columns, _ := strconv.parse_int(type.column_count.derived_expr.(^ast.Basic_Lit).tok.text)
 		rows, _ := strconv.parse_int(type.row_count.derived_expr.(^ast.Basic_Lit).tok.text)
-		codegen_type.base_type = get_type(type.elem.derived_expr)
+		codegen_type.base_type = get_type(type.elem)
 		codegen_type.length = columns * rows
 	case ^ast.Bit_Set_Type:
 		//TODO: Update enum to have a length indicating the range from smallest to largest
 		codegen_type.kind = .Bit_Set
-		base_type := get_type(type.elem.derived_expr)
+		base_type := get_type(type.elem)
 		codegen_type.base_type = base_type
 		if type.underlying != nil {
-			codegen_type.underlying = get_type(type.underlying.derived_expr)
+			codegen_type.underlying = get_type(type.underlying)
 		}
 		// if type.underlying != nil do dd(get_type(type.underlying.derived_expr))
 		if base_type.kind == .Ident {
@@ -737,7 +740,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		if params != nil {
 			for param in params {
 				for param_name in param.names {
-					base_type := get_type(param.type.derived_expr)
+					base_type := get_type(param.type)
 					codegen_param := Type {
 						kind      = .Param,
 						base_type = base_type,
@@ -756,7 +759,7 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 				result_index := 1
 				if result_type, result_type_ok := result.type.derived_expr.(^ast.Ident);
 				   result_type_ok {
-					base_type := get_type(result_type.derived_expr)
+					base_type := get_type(result_type)
 					for result_name in result.names {
 						odin_param_type := Type {
 							kind      = .Param,
@@ -786,7 +789,22 @@ get_type :: proc(derived_expr: ast.Any_Expr) -> ^Type {
 		}
 	case ^ast.Ellipsis:
 		codegen_type.kind = .Ellipsis
-		codegen_type.base_type = get_type(type.expr.derived_expr)
+		codegen_type.base_type = get_type(type.expr)
+	// WIP
+	// Incomplete, will not cover arrays as backing fields for now
+	case ^ast.Bit_Field_Type:
+		codegen_type.kind = .Bit_Field
+		codegen_type.underlying = get_type(type.backing_type)
+		for field in type.fields {
+			field_type := Type{}
+			field_type.kind = .Bit_Field_Field
+			field_type.base_type = get_type(field.type)
+			append(&field_type.names, field.name.derived_expr.(^ast.Ident).name)
+			field_type.bit_size = get_type(field.bit_size)
+
+			append(&codegen_type.fields, field_type)
+		}
+		dd(codegen_type)
 	case:
 		fmt.printfln("%#v", type)
 	// codegen_type.base_type = base_type.name
